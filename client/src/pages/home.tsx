@@ -89,7 +89,7 @@ export default function Home() {
           </Link>
         </div>
         <MediaGrid 
-          items={trendingData?.results.slice(0, 10) || []} 
+          items={trendingData?.results.slice(0, 18) || []} 
           isLoading={trendingLoading}
         />
       </section>
@@ -103,7 +103,7 @@ export default function Home() {
           </Link>
         </div>
         <MediaGrid 
-          items={popularTVData?.results.slice(0, 10) || []} 
+          items={popularTVData?.results.slice(0, 18) || []} 
           isLoading={tvLoading}
         />
       </section>

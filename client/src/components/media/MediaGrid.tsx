@@ -24,27 +24,22 @@ export default function MediaGrid({
     sm: 3,
     md: 4,
     lg: 5,
-    xl: 5,
+    xl: 6,
   },
 }: MediaGridProps) {
-  const getGridCols = () => {
-    const base = `grid-cols-${columns.base}`;
-    const sm = columns.sm ? `sm:grid-cols-${columns.sm}` : "";
-    const md = columns.md ? `md:grid-cols-${columns.md}` : "";
-    const lg = columns.lg ? `lg:grid-cols-${columns.lg}` : "";
-    const xl = columns.xl ? `xl:grid-cols-${columns.xl}` : "";
-    
-    return `${base} ${sm} ${md} ${lg} ${xl}`;
+  // Use CSS classes directly instead of dynamic classes which might not be purged properly
+  const getGridClass = () => {
+    return "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
   };
 
   if (isLoading) {
     return (
-      <div className={`mt-4 grid gap-1 ${getGridCols()}`}>
-        {Array(10)
+      <div className={`mt-4 ${getGridClass()} gap-3`}>
+        {Array(12)
           .fill(0)
           .map((_, i) => (
-            <div key={i} className="space-y-1">
-              <Skeleton className="aspect-[2/3] w-full rounded-lg" />
+            <div key={i} className="space-y-2">
+              <Skeleton className="aspect-[2/3] w-full rounded-md" />
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
             </div>
@@ -62,7 +57,7 @@ export default function MediaGrid({
   }
 
   return (
-    <div className={`mt-4 grid gap-1 ${getGridCols()}`}>
+    <div className={`mt-4 ${getGridClass()} gap-3`}>
       {items.map((item) => (
         <MediaCard key={item.id} media={item} />
       ))}
