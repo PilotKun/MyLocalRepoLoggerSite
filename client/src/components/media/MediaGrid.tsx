@@ -20,11 +20,11 @@ export default function MediaGrid({
   isLoading = false,
   emptyMessage = "No items found",
   columns = {
-    base: 3,
-    sm: 4,
-    md: 5,
-    lg: 6,
-    xl: 7,
+    base: 2,
+    sm: 3,
+    md: 4,
+    lg: 5,
+    xl: 5,
   },
 }: MediaGridProps) {
   const getGridCols = () => {
@@ -39,11 +39,11 @@ export default function MediaGrid({
 
   if (isLoading) {
     return (
-      <div className={`mt-4 grid gap-2 ${getGridCols()}`}>
+      <div className={`mt-4 grid gap-1 ${getGridCols()}`}>
         {Array(10)
           .fill(0)
           .map((_, i) => (
-            <div key={i} className="space-y-2">
+            <div key={i} className="space-y-1">
               <Skeleton className="aspect-[2/3] w-full rounded-lg" />
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
@@ -62,7 +62,7 @@ export default function MediaGrid({
   }
 
   return (
-    <div className={`mt-4 grid gap-2 ${getGridCols()}`}>
+    <div className={`mt-4 grid gap-1 ${getGridCols()}`}>
       {items.map((item) => (
         <MediaCard key={item.id} media={item} />
       ))}

@@ -44,10 +44,13 @@ export default function MediaCard({
         height={height}
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
-        <h3 className="font-medium text-white">{title}</h3>
-        <p className="text-sm text-white/70">{year}</p>
+      {/* Gradient overlay - always visible at bottom, full on hover */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-100 transition-opacity"></div>
+      
+      {/* Title and year - always visible */}
+      <div className="absolute inset-x-0 bottom-0 p-2">
+        <h3 className="text-sm font-medium text-white truncate">{title}</h3>
+        <p className="text-xs text-white/70">{year}</p>
       </div>
       <div className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-white backdrop-blur-sm">
         <span className="text-xs font-medium">{rating}</span>
