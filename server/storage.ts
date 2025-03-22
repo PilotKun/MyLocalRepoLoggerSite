@@ -7,6 +7,8 @@ import {
   List, InsertList,
   ListItem, InsertListItem
 } from "@shared/schema";
+import { MongoStorage } from './mongodb-storage';
+import { db } from './db';
 
 export interface IStorage {
   // User operations
@@ -356,4 +358,17 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Function to get the appropriate storage implementation
+export function getStorageImplementation(): IStorage {
+  // Check if MongoDB is connected
+  if (db.readyState === 1) { // 1 = connected
+    console.log("Using MongoDB storage implementation");
+    return new MongoStorage();
+  } else {
+    console.log("Using in-memory storage implementation");
+    return new MemStorage();
+  }
+}
+
+// Export a single storage instance
+export const storage = getStorageImplementation();
