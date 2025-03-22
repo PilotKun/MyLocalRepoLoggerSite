@@ -30,29 +30,28 @@ export default function MediaCard({
     "aspect-square";
 
   return (
-    <Link href={`/media/${media.id}?type=${isMovie ? 'movie' : 'tv'}`}>
-      <a
-        className="group relative overflow-hidden rounded-lg border"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <img
-          src={getImageUrl(media.poster_path)}
-          alt={title}
-          className={`${aspectRatioClass} w-full object-cover transition-all group-hover:scale-105`}
-          width={width}
-          height={height}
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-        <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
-          <h3 className="font-medium text-white">{title}</h3>
-          <p className="text-sm text-white/70">{year}</p>
-        </div>
-        <div className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-white backdrop-blur-sm">
-          <span className="text-xs font-medium">{rating}</span>
-        </div>
-      </a>
+    <Link 
+      href={`/media/${media.id}?type=${isMovie ? 'movie' : 'tv'}`}
+      className="group relative overflow-hidden rounded-lg border"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <img
+        src={getImageUrl(media.poster_path)}
+        alt={title}
+        className={`${aspectRatioClass} w-full object-cover transition-all group-hover:scale-105`}
+        width={width}
+        height={height}
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
+        <h3 className="font-medium text-white">{title}</h3>
+        <p className="text-sm text-white/70">{year}</p>
+      </div>
+      <div className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-white backdrop-blur-sm">
+        <span className="text-xs font-medium">{rating}</span>
+      </div>
     </Link>
   );
 }
