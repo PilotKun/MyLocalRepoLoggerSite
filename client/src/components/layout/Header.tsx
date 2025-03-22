@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Search, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useTheme } from "@/components/ThemeProvider";
 import AuthModal from "@/components/auth/AuthModal";
 
@@ -13,15 +12,9 @@ interface HeaderProps {
 export default function Header({ toggleSidebar }: HeaderProps) {
   const [, navigate] = useLocation();
   const { theme, setTheme } = useTheme();
-  const [searchQuery, setSearchQuery] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
+  
+  // Search functionality removed as it redirects to search page directly
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -59,16 +52,6 @@ export default function Header({ toggleSidebar }: HeaderProps) {
           </Link>
         </div>
         <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:space-x-4">
-          <form onSubmit={handleSearch} className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search movies, TV shows, or people..."
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </form>
           <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
           <Button
             variant="ghost"
