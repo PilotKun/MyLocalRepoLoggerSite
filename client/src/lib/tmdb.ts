@@ -12,9 +12,12 @@ async function tmdbFetch<T>(endpoint: string, params: Record<string, string> = {
     url.searchParams.append(key, value);
   }
   
+  console.log(`TMDB API Request: ${endpoint}`);
+  
   const response = await fetch(url.toString());
   
   if (!response.ok) {
+    console.error(`TMDB API error: ${response.status} ${response.statusText}`);
     throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
   }
   
