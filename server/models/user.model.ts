@@ -14,27 +14,27 @@ const UserSchema: Schema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  image: { type: String },
+  image: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
-// Hash password before saving
-UserSchema.pre<IUser>('save', async function(next) {
-  // Only hash the password if it's modified or new
+// Pre-save hook to hash password
+UserSchema.pre('save', async function(next) {
+  // Only hash the password if it's modified (or new)
   if (!this.isModified('password')) return next();
   
   try {
-    // Generate salt
+    // Generate a salt
     const salt = await bcrypt.genSalt(10);
-    // Hash password
+    // Hash the password with the salt
     this.password = await bcrypt.hash(this.password, salt);
-    return next();
-  } catch (error: any) {
-    return next(error);
+    next();
+  } catch (error) {
+    next(error as Error);
   }
 });
 
-// Method to compare password for login
+// Method to compare passwords
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };

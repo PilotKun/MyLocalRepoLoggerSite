@@ -18,7 +18,7 @@ const MediaSchema: Schema = new Schema({
   voteAverage: { type: Number, default: null }
 });
 
-// Create a compound index on tmdbId and type to ensure uniqueness
+// Create a compound index on tmdbId + type to make them unique together
 MediaSchema.index({ tmdbId: 1, type: 1 }, { unique: true });
 
 export default mongoose.model<IMedia>('Media', MediaSchema);

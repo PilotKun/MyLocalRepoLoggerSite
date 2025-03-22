@@ -1,13 +1,15 @@
 import mongoose from 'mongoose';
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cinelog';
+// MongoDB connection - Uses the DATABASE_URL if available
+const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/cinelog';
 
 // Connection function
 export async function connectToDatabase() {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB');
+    await mongoose.connect(MONGODB_URI, {
+      // Use appropriate options for Replit environment
+    });
+    console.log('Connected to MongoDB successfully');
   } catch (error) {
     console.error('MongoDB connection error:', error);
     throw error;
