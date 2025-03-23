@@ -2,11 +2,11 @@ import mongoose from 'mongoose';
 
 // MongoDB connection
 // For Replit, we'll create a MongoDB connection string from the PostgreSQL connection info
-let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cinelog';
+let MONGODB_URI = process.env.MONGODB_URL || 'mongodb://localhost:27017/cinelog';
 
 // If MONGODB_URI is not set but we have PostgreSQL DATABASE_URL environment variables, 
 // we'll create a MongoDB URI using these credentials
-if (!process.env.MONGODB_URI && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGHOST) {
+if (!process.env.MONGODB_URL && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGHOST) {
   // Create MongoDB Atlas style connection string using PostgreSQL credentials
   MONGODB_URI = `mongodb+srv://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}/cinelog?retryWrites=true&w=majority`;
   console.log('Created MongoDB connection string from PostgreSQL credentials');

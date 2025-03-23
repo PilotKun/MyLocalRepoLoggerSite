@@ -14,9 +14,11 @@ import MediaGrid from "@/components/media/MediaGrid";
 import StatsCard from "@/components/user/StatsCard";
 import ActivityItem from "@/components/user/ActivityItem";
 import { TMDBMovie, TMDBTVShow } from "@shared/schema";
+import AuthModal from "@/components/auth/AuthModal";
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Trending movies and shows
   const { data: trendingData, isLoading: trendingLoading } = useQuery({
@@ -74,8 +76,10 @@ export default function Home() {
             Track, discover, and share your favorite movies and TV shows.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button>Get Started</Button>
-            <Button variant="outline">Explore</Button>
+            <Button onClick={() => setShowAuthModal(true)}>Get Started</Button>
+            <Link href="/discover">
+              <Button variant="outline">Explore</Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -157,6 +161,14 @@ export default function Home() {
             </div>
           </section>
         </>
+      )}
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
       )}
     </div>
   );

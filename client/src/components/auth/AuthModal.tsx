@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthModalProps {
+  isOpen: boolean;
   onClose: () => void;
 }
 

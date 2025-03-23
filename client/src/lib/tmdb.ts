@@ -1,6 +1,6 @@
 import { TMDBMovie, TMDBTVShow, TMDBSearchResult } from "@shared/schema";
 
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || "3e1dd3d6027e760c3f63b89394b31e60";
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY  || "4eb67347d50b58fcc27c1c9317176eb6";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 // Helper function to make API requests
