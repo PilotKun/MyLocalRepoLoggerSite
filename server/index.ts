@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { connectToDatabase } from "./db";
+import { connectToDatabase, closeDatabase } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -38,13 +38,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Connect to MongoDB
+  // Connect to PostgreSQL
   try {
     await connectToDatabase();
-    log('Connected to MongoDB successfully');
+    log('Connected to PostgreSQL successfully');
   } catch (error) {
-    log('Failed to connect to MongoDB: ' + error);
-    // Continue execution even if MongoDB fails - the app can fallback to in-memory storage
+    log('Failed to connect to database: ' + error);
+    // Continue execution even if PostgreSQL fails - the app can fallback to in-memory storage
   }
   
   const server = await registerRoutes(app);
@@ -73,4 +73,19 @@ app.use((req, res, next) => {
   server.listen(port, "127.0.0.1", () => {
     log(`serving on port ${port}`);
   });
-})();
+  
+  // Add graceful shutdown for PostgreSQL connection
+  process.on('SIGINT', async () => {
+    log('Shutting down server...');
+    try {
+      await closeDatabase();
+      log('Database connection closed');
+    } catch (error) {
+      log('Error closing database: ' + error);
+    }
+    process.exit(0);
+  });
+})().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

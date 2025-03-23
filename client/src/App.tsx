@@ -9,6 +9,8 @@ import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileNav from "@/components/layout/MobileNav";
 
+import { AuthProvider } from '@/components/auth/AuthContext';
+
 // Pages
 import Home from "@/pages/home";
 import Discover from "@/pages/discover";
@@ -59,13 +61,18 @@ function Router() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark">
-      <QueryClientProvider client={queryClient}>
-        <Router />
-        <Toaster />
-      </QueryClientProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider defaultTheme="dark">
+        <QueryClientProvider client={queryClient}>
+          <Router />
+          <Toaster />
+        </QueryClientProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
+
+// Remove the MyApp component since this is not a Next.js app
+// and it's not being used
 
 export default App;

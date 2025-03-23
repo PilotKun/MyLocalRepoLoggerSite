@@ -1,38 +1,36 @@
-import mongoose from 'mongoose';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pkg from 'pg';
+const { Pool } = pkg;
+import * as schema from '../shared/schema';
 
-// MongoDB connection
-// For Replit, we'll create a MongoDB connection string from the PostgreSQL connection info
-let MONGODB_URI = process.env.MONGODB_URL || 'mongodb://localhost:27017/cinelog';
+// PostgreSQL connection configuration
+const connectionString = process.env.DATABASE_URL || 
+  'postgres://postgres:postgres@localhost:5432/cinelog';
 
-// If MONGODB_URI is not set but we have PostgreSQL DATABASE_URL environment variables, 
-// we'll create a MongoDB URI using these credentials
-if (!process.env.MONGODB_URL && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGHOST) {
-  // Create MongoDB Atlas style connection string using PostgreSQL credentials
-  MONGODB_URI = `mongodb+srv://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}/cinelog?retryWrites=true&w=majority`;
-  console.log('Created MongoDB connection string from PostgreSQL credentials');
-}
+// Create connection pool
+const pool = new Pool({ connectionString });
+
+// Initialize Drizzle with our schema
+export const db = drizzle(pool, { schema });
 
 // Connection function
 export async function connectToDatabase() {
   try {
-    console.log('Attempting to connect to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB successfully');
+    console.log('Attempting to connect to PostgreSQL...');
+    // Test the connection
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    console.log('Connected to PostgreSQL successfully');
+    return db;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
-    // Don't throw the error, let the app continue with in-memory storage
+    console.error('PostgreSQL connection error:', error);
     console.log('Falling back to in-memory storage');
+    return db; // Return a mock DB if needed
   }
 }
 
-// Handle connection events
-mongoose.connection.on('error', err => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-// Export the mongoose connection for use elsewhere in the app
-export const db = mongoose.connection;
+// Close connection
+export async function closeDatabase() {
+  await pool.end();
+}

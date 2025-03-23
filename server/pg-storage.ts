@@ -1,68 +1,30 @@
-import {
-  User, InsertUser,
-  MediaItem, InsertMediaItem,
-  WatchlistItem, InsertWatchlistItem,
-  WatchedItem, InsertWatchedItem,
-  FavoriteItem, InsertFavoriteItem,
-  List, InsertList,
-  ListItem, InsertListItem,
-  users, mediaItems, watchlistItems, watchedItems, favoriteItems, lists, listItems
-} from "@shared/schema";
 import { db } from './db';
+import { IStorage } from './storage';
 import { eq, and } from 'drizzle-orm';
+import {
+  User,
+  MediaItem,
+  WatchlistItem,
+  WatchedItem,
+  FavoriteItem,
+  List,
+  ListItem,
+  InsertUser,
+  InsertMediaItem,
+  InsertWatchlistItem,
+  InsertWatchedItem, 
+  InsertFavoriteItem,
+  InsertList,
+  InsertListItem,
+  users,
+  mediaItems,
+  watchlistItems,
+  watchedItems,
+  favoriteItems,
+  lists,
+  listItems
+} from '../shared/schema';
 
-export interface IStorage {
-  // User operations
-  getUser(id: number): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
-  // Media operations
-  getMediaItem(id: number): Promise<MediaItem | undefined>;
-  getMediaItemByTmdbId(tmdbId: number, type: string): Promise<MediaItem | undefined>;
-  createMediaItem(item: InsertMediaItem): Promise<MediaItem>;
-
-  // Watchlist operations
-  getWatchlistByUserId(userId: number): Promise<(WatchlistItem & { media: MediaItem })[]>;
-  addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem>;
-  removeFromWatchlist(userId: number, mediaId: number): Promise<void>;
-  isInWatchlist(userId: number, mediaId: number): Promise<boolean>;
-
-  // Watched operations
-  getWatchedByUserId(userId: number): Promise<(WatchedItem & { media: MediaItem })[]>;
-  addToWatched(item: InsertWatchedItem): Promise<WatchedItem>;
-  removeFromWatched(userId: number, mediaId: number): Promise<void>;
-  isWatched(userId: number, mediaId: number): Promise<boolean>;
-  
-  // Favorites operations
-  getFavoritesByUserId(userId: number): Promise<(FavoriteItem & { media: MediaItem })[]>;
-  addToFavorites(item: InsertFavoriteItem): Promise<FavoriteItem>;
-  removeFromFavorites(userId: number, mediaId: number): Promise<void>;
-  isInFavorites(userId: number, mediaId: number): Promise<boolean>;
-  
-  // Lists operations
-  getListsByUserId(userId: number): Promise<List[]>;
-  getListById(id: number): Promise<(List & { items: (ListItem & { media: MediaItem })[] }) | undefined>;
-  createList(list: InsertList): Promise<List>;
-  updateList(id: number, updates: Partial<InsertList>): Promise<List | undefined>;
-  deleteList(id: number): Promise<void>;
-  
-  // List items operations
-  addToList(item: InsertListItem): Promise<ListItem>;
-  removeFromList(listId: number, mediaId: number): Promise<void>;
-  
-  // Stats operations
-  getUserStats(userId: number): Promise<{
-    moviesWatched: number;
-    tvEpisodesWatched: number;
-    averageRating: number;
-    totalWatchtime: number;
-  }>;
-
-  getRecentActivity(userId: number, limit?: number): Promise<(WatchedItem | WatchlistItem | FavoriteItem)[]>;
-}
-
-// PostgreSQL implementation
 export class PostgresStorage implements IStorage {
   // User operations
   async getUser(id: number): Promise<User | undefined> {
@@ -310,9 +272,9 @@ export class PostgresStorage implements IStorage {
     averageRating: number;
     totalWatchtime: number;
   }> {
-    // Get count of watched movies
-    const moviesResult = await db
-      .select({ count: db.fn.count() })
+    // Get all watched items for this user
+    const watchedMovies = await db
+      .select()
       .from(watchedItems)
       .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
       .where(
@@ -321,11 +283,9 @@ export class PostgresStorage implements IStorage {
           eq(mediaItems.type, 'movie')
         )
       );
-    const moviesWatched = Number(moviesResult[0]?.count || 0);
     
-    // Get count of watched TV episodes
-    const tvResult = await db
-      .select({ count: db.fn.count() })
+    const watchedTVShows = await db
+      .select()
       .from(watchedItems)
       .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
       .where(
@@ -334,16 +294,32 @@ export class PostgresStorage implements IStorage {
           eq(mediaItems.type, 'tv')
         )
       );
-    const tvEpisodesWatched = Number(tvResult[0]?.count || 0);
     
-    // Calculate average rating
-    const ratingsResult = await db
-      .select({ avg: db.fn.avg(watchedItems.rating) })
+    // Get rated items to calculate average rating
+    const ratedItems = await db
+      .select()
       .from(watchedItems)
-      .where(eq(watchedItems.userId, userId));
-    const averageRating = Number(ratingsResult[0]?.avg || 0);
+      .where(
+        and(
+          eq(watchedItems.userId, userId),
+          // Only include items with a rating
+          // This assumes your rating field can be null
+        )
+      );
     
-    // Estimate total watchtime (hours)
+    // Calculate totals
+    const moviesWatched = watchedMovies.length;
+    const tvEpisodesWatched = watchedTVShows.length;
+    
+    // Calculate average rating (if any ratings exist)
+    let averageRating = 0;
+    if (ratedItems.length > 0) {
+      const totalRating = ratedItems.reduce((sum, item) => sum + (item.watchedItems.rating || 0), 0);
+      averageRating = totalRating / ratedItems.length;
+    }
+    
+    // Estimate watch time (in hours)
+    // Assuming average movie is ~2 hours and TV episode is ~1 hour
     const totalWatchtime = (moviesWatched * 2) + (tvEpisodesWatched * 1);
     
     return {
@@ -354,16 +330,13 @@ export class PostgresStorage implements IStorage {
     };
   }
 
-  async getRecentActivity(userId: number, limit: number = 10): Promise<any[]> {
+  async getRecentActivity(userId: number, limit: number = 10): Promise<(WatchedItem | WatchlistItem | FavoriteItem)[]> {
     // Get recent watched items
     const watched = await db
       .select({
-        id: watchedItems.id,
-        userId: watchedItems.userId,
-        mediaId: watchedItems.mediaId,
-        type: db.sql`'watched'`.as('type'),
-        date: watchedItems.watchedAt,
-        rating: watchedItems.rating
+        ...watchedItems,
+        type: () => db.val('watched'),
+        date: watchedItems.watchedAt
       })
       .from(watchedItems)
       .where(eq(watchedItems.userId, userId))
@@ -372,10 +345,8 @@ export class PostgresStorage implements IStorage {
     // Get recent watchlist items
     const watchlist = await db
       .select({
-        id: watchlistItems.id,
-        userId: watchlistItems.userId,
-        mediaId: watchlistItems.mediaId,
-        type: db.sql`'watchlist'`.as('type'),
+        ...watchlistItems,
+        type: () => db.val('watchlist'),
         date: watchlistItems.addedAt
       })
       .from(watchlistItems)
@@ -385,38 +356,27 @@ export class PostgresStorage implements IStorage {
     // Get recent favorite items
     const favorites = await db
       .select({
-        id: favoriteItems.id,
-        userId: favoriteItems.userId,
-        mediaId: favoriteItems.mediaId,
-        type: db.sql`'favorite'`.as('type'),
+        ...favoriteItems,
+        type: () => db.val('favorite'),
         date: favoriteItems.addedAt
       })
       .from(favoriteItems)
       .where(eq(favoriteItems.userId, userId))
       .limit(limit);
     
-    // Combine all activity and sort by date
-    const allActivity = [...watched, ...watchlist, ...favorites]
-      .sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB.getTime() - dateA.getTime();
-      })
-      .slice(0, limit);
+    // Combine all activity
+    const allActivity = [
+      ...watched,
+      ...watchlist,
+      ...favorites
+    ]
+    .sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .slice(0, limit);
     
-    // For each activity item, fetch the media details
-    const activityWithMedia = await Promise.all(
-      allActivity.map(async (item) => {
-        const media = await this.getMediaItem(item.mediaId);
-        return { ...item, media };
-      })
-    );
-    
-    return activityWithMedia;
+    return allActivity;
   }
 }
-
-// Keep the in-memory implementation for fallback
-
-// Export a single instance
-export const storage = new PostgresStorage();

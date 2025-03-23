@@ -1,14 +1,18 @@
 import { defineConfig } from "drizzle-kit";
+import * as dotenv from "dotenv";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
+// Load environment variables
+dotenv.config();
+
+// Use a default connection string if DATABASE_URL is not provided
+const databaseUrl = process.env.DATABASE_URL || 
+  'postgres://postgres:postgres@localhost:5432/cinelog';
 
 export default defineConfig({
   out: "./migrations",
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 });

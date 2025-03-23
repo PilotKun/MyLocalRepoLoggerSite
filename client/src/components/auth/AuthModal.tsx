@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/auth/AuthContext";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -26,6 +26,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,29 +34,91 @@ export default function AuthModal({ onClose }: AuthModalProps) {
 
     try {
       if (mode === 'signin') {
-        // In a real app, this would use nextauth's signIn function
-        // Mocking a login for now
+        await signIn(email, password);
         toast({
           title: "Sign in successful",
           description: "Welcome back to CineLog!",
         });
       } else {
-        // In a real app, this would create a user and sign them in
-        // Just mocking signup for now
+        await signUp(email, password);
+        // Optional: Update user profile with name
+        // if (auth.currentUser) {
+        //   await updateProfile(auth.currentUser, { displayName: name });
+        // }
         toast({
           title: "Account created",
           description: "Welcome to CineLog!",
         });
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.code ? 
+        getFirebaseErrorMessage(error.code) : 
+        "An error occurred. Please try again.";
+        
       toast({
         title: "Authentication failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      console.log("Initiating Google sign-in from modal");
+      await signInWithGoogle();
+      
+      // If we're using popup, this code will run after successful sign-in
+      // If we're using redirect, this code won't run (page will redirect)
+      toast({
+        title: "Sign in successful",
+        description: "Welcome to CineLog!",
+      });
+      onClose();
+    } catch (error: any) {
+      // Don't show error if user just closed the popup
+      if (error.code !== 'auth/cancelled-popup-request' && 
+          error.code !== 'auth/popup-closed-by-user') {
+        console.error("Google sign-in failed:", error);
+        toast({
+          title: "Authentication failed",
+          description: getFirebaseErrorMessage(error.code),
+          variant: "destructive",
+        });
+      } else {
+        console.log("User cancelled the Google sign-in process");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Extend your error message function to handle Google-specific errors:
+  const getFirebaseErrorMessage = (errorCode: string): string => {
+    switch (errorCode) {
+      case 'auth/email-already-in-use':
+        return 'This email is already in use.';
+      case 'auth/invalid-email':
+        return 'Please provide a valid email address.';
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+        return 'Invalid email or password.';
+      case 'auth/network-request-failed':
+        return 'Network error. Please check your connection.';
+      case 'auth/popup-blocked':
+        return 'Popup blocked by browser. Please allow popups for this site.';
+      case 'auth/internal-error':
+        return 'An internal authentication error occurred. Please try again.';
+      case 'auth/account-exists-with-different-credential':
+        return 'An account already exists with the same email but different sign-in credentials.';
+      default:
+        return `Authentication error (${errorCode}). Please try again.`;
     }
   };
 
@@ -71,7 +134,13 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          type="button"
+        >
           <svg width="24" height="24" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -103,6 +172,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required={mode === 'signup'}
+                disabled={isLoading}
               />
             </div>
           )}
@@ -116,6 +186,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           
@@ -127,6 +198,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           
