@@ -12,8 +12,7 @@ interface ListItemProps {
     type: "movie" | "tv";
     voteAverage: number;
     userRating?: number;
-    episodesWatched?: number;
-    totalEpisodes?: number;
+    seasonsWatched?: number;
   };
   onRatingChange?: () => void;
 }
@@ -72,9 +71,9 @@ export default function ListItem({ item, onRatingChange }: ListItemProps) {
           value={item.userRating}
           onChange={handleRatingChange}
         />
-        {item.type === "tv" && item.episodesWatched !== undefined && (
+        {item.type === "tv" && item.seasonsWatched !== undefined && item.seasonsWatched > 0 && (
           <span className="text-sm text-muted-foreground">
-            {item.episodesWatched}/{item.totalEpisodes || "?"} eps
+            {item.seasonsWatched} {item.seasonsWatched === 1 ? 'season' : 'seasons'}
           </span>
         )}
       </div>

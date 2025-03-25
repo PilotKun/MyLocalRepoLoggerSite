@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 export default function Favorites() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"all" | "movies" | "tv">("all");
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Fetch favorites
   const { data: favorites, isLoading } = useQuery({

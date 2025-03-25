@@ -63,6 +63,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(media);
   });
 
+  // Media check by TMDB ID endpoint
+  router.get("/api/media/check/:tmdbId", async (req, res) => {
+    try {
+      const tmdbId = parseInt(req.params.tmdbId);
+      const type = req.query.type as string;
+      
+      if (isNaN(tmdbId) || !type) {
+        return res.status(400).json({ message: "Invalid TMDB ID or missing media type" });
+      }
+
+      console.log(`Checking for media with TMDB ID ${tmdbId} and type ${type}`);
+      const media = await storage.getMediaItemByTmdbId(tmdbId, type);
+      
+      if (!media) {
+        return res.status(404).json({ message: "Media not found" });
+      }
+
+      res.json(media);
+    } catch (error) {
+      console.error("Error checking media:", error);
+      res.status(500).json({ message: "Failed to check media" });
+    }
+  });
+
   router.post("/api/media", async (req, res) => {
     try {
       const mediaData = insertMediaItemSchema.parse(req.body);

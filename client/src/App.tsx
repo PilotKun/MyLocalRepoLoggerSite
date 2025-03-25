@@ -23,6 +23,7 @@ import Lists from "@/pages/lists";
 import Profile from "@/pages/profile";
 import MediaDetail from "@/pages/media/[id]";
 import NotFound from "@/pages/not-found";
+import ListDetail from "@/pages/lists/[id]";
 
 function Router() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,6 +47,7 @@ function Router() {
             <Route path="/watchlist" component={Watchlist} />
             <Route path="/favorites" component={Favorites} />
             <Route path="/lists" component={Lists} />
+            <Route path="/lists/:id" component={ListDetail} />
             <Route path="/profile" component={Profile} />
             <Route path="/media/:id" component={MediaDetail} />
             <Route component={NotFound} />

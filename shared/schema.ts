@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -93,6 +93,8 @@ export const listItems = pgTable("list_items", {
   id: serial("id").primaryKey(),
   listId: integer("list_id").notNull(),
   mediaId: integer("media_id").notNull(),
+  status: varchar("status", { length: 50 }).default("watched"),
+  seasonsWatched: integer("seasons_watched"), // Tracks seasons watched for TV shows
   createdAt: timestamp("created_at").defaultNow(),
 });
 

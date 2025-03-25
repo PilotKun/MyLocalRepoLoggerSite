@@ -76,6 +76,32 @@ export async function getTVShowDetails(id: number): Promise<TMDBTVShow & { episo
   return tmdbFetch<TMDBTVShow & { episode_run_time: number[] }>(`/tv/${id}`);
 }
 
+// Search for movies and TV shows for adding to lists
+export async function searchMedia(query: string) {
+  if (!query.trim()) {
+    return [];
+  }
+
+  try {
+    const result = await searchMulti(query);
+    
+    // Filter to only movies and TV shows, and transform to our format
+    return result.results
+      .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+      .map(item => ({
+        id: item.id,
+        title: item.media_type === 'movie' ? item.title : item.name,
+        poster_path: item.poster_path,
+        media_type: item.media_type,
+        release_date: item.media_type === 'movie' ? item.release_date : undefined,
+        first_air_date: item.media_type === 'tv' ? item.first_air_date : undefined
+      }));
+  } catch (error) {
+    console.error("Error searching media:", error);
+    return [];
+  }
+}
+
 // Get movie recommendations
 export async function getMovieRecommendations(id: number): Promise<TMDBSearchResult> {
   return tmdbFetch<TMDBSearchResult>(`/movie/${id}/recommendations`);

@@ -122,12 +122,12 @@ export default function Profile() {
             />
           ) : (
             <span className="text-4xl font-bold text-muted-foreground">
-              {userProfile.name.charAt(0)}
+              {userProfile.name && userProfile.name.length > 0 ? userProfile.name.charAt(0) : "U"}
             </span>
           )}
         </div>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{userProfile.name}</h1>
+          <h1 className="text-3xl font-bold">{userProfile.name || "User"}</h1>
           <p className="text-muted-foreground">{userProfile.email}</p>
         </div>
         <div className="flex gap-2">

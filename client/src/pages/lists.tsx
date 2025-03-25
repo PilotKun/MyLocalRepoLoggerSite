@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
-import { PlusCircle, ListPlus, Globe, Lock, Star, Film, Tv } from "lucide-react";
+import { PlusCircle, ListPlus, Globe, Lock, Star, Film, Tv, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -49,6 +49,8 @@ const formSchema = z.object({
 export default function Lists() {
   const { currentUser } = useAuth();
   const [open, setOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [listToDelete, setListToDelete] = useState<number | null>(null);
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -117,6 +119,37 @@ export default function Lists() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteList = async () => {
+    if (!currentUser || !listToDelete) return;
+    
+    try {
+      await apiRequest("DELETE", `/api/lists/${listToDelete}`);
+      
+      toast({
+        title: "List deleted",
+        description: "Your list has been deleted successfully."
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUser.uid}/lists`] });
+      setDeleteConfirmOpen(false);
+      setListToDelete(null);
+    } catch (error) {
+      console.error("Error deleting list:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete list. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const openDeleteConfirm = (e: React.MouseEvent, listId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setListToDelete(listId);
+    setDeleteConfirmOpen(true);
   };
 
   if (!currentUser) {
@@ -243,11 +276,19 @@ export default function Lists() {
                     <ListPlus className="h-5 w-5" />
                     {list.name}
                   </CardTitle>
-                  {list.isPublic ? (
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {list.isPublic ? (
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <button 
+                      onClick={(e) => openDeleteConfirm(e, list.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <CardDescription>{list.description || "No description"}</CardDescription>
               </CardHeader>
@@ -268,6 +309,26 @@ export default function Lists() {
           </Link>
         ))}
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete List</DialogTitle>
+            <DialogDescription>
+              Do you really want to delete this list? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              No
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteList}>
+              Yes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
