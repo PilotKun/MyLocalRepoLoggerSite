@@ -17,17 +17,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // User endpoints
   router.get("/api/users/:id", async (req, res) => {
-    const userId = parseInt(req.params.id);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    try {
+      const userId = req.params.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
     }
-
-    const user = await storage.getUser(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json(user);
   });
 
   router.post("/api/users", async (req, res) => {
@@ -85,11 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Watchlist endpoints
   router.get("/api/users/:userId/watchlist", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
+    const userId = req.params.userId;
     const watchlist = await storage.getWatchlistByUserId(userId);
     res.json(watchlist);
   });
@@ -115,24 +110,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.delete("/api/users/:userId/watchlist/:mediaId", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    const mediaId = parseInt(req.params.mediaId);
-    
-    if (isNaN(userId) || isNaN(mediaId)) {
-      return res.status(400).json({ message: "Invalid ID" });
-    }
+    try {
+      const userId = req.params.userId;
+      const mediaId = parseInt(req.params.mediaId);
+      
+      if (isNaN(mediaId)) {
+        return res.status(400).json({ message: "Invalid media ID" });
+      }
 
-    await storage.removeFromWatchlist(userId, mediaId);
-    res.status(204).end();
+      await storage.removeFromWatchlist(userId, mediaId);
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove from watchlist" });
+    }
   });
 
   // Watched endpoints
   router.get("/api/users/:userId/watched", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
+    const userId = req.params.userId;
     const watched = await storage.getWatchedByUserId(userId);
     res.json(watched);
   });
@@ -159,24 +154,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.delete("/api/users/:userId/watched/:mediaId", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    const mediaId = parseInt(req.params.mediaId);
-    
-    if (isNaN(userId) || isNaN(mediaId)) {
-      return res.status(400).json({ message: "Invalid ID" });
-    }
+    try {
+      const userId = req.params.userId;
+      const mediaId = parseInt(req.params.mediaId);
+      
+      if (isNaN(mediaId)) {
+        return res.status(400).json({ message: "Invalid media ID" });
+      }
 
-    await storage.removeFromWatched(userId, mediaId);
-    res.status(204).end();
+      await storage.removeFromWatched(userId, mediaId);
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove from watched" });
+    }
   });
 
   // Favorites endpoints
   router.get("/api/users/:userId/favorites", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
+    const userId = req.params.userId;
     const favorites = await storage.getFavoritesByUserId(userId);
     res.json(favorites);
   });
@@ -202,48 +197,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.delete("/api/users/:userId/favorites/:mediaId", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    const mediaId = parseInt(req.params.mediaId);
-    
-    if (isNaN(userId) || isNaN(mediaId)) {
-      return res.status(400).json({ message: "Invalid ID" });
-    }
+    try {
+      const userId = req.params.userId;
+      const mediaId = parseInt(req.params.mediaId);
+      
+      if (isNaN(mediaId)) {
+        return res.status(400).json({ message: "Invalid media ID" });
+      }
 
-    await storage.removeFromFavorites(userId, mediaId);
-    res.status(204).end();
+      await storage.removeFromFavorites(userId, mediaId);
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove from favorites" });
+    }
   });
 
   // Lists endpoints
   router.get("/api/users/:userId/lists", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    try {
+      const userId = req.params.userId;
+      const lists = await storage.getListsByUserId(userId);
+      res.json(lists);
+    } catch (error) {
+      console.error("Error fetching lists:", error);
+      res.status(500).json({ message: "Failed to fetch lists" });
     }
-
-    const lists = await storage.getListsByUserId(userId);
-    res.json(lists);
   });
 
   router.get("/api/lists/:id", async (req, res) => {
-    const listId = parseInt(req.params.id);
-    if (isNaN(listId)) {
-      return res.status(400).json({ message: "Invalid list ID" });
-    }
+    try {
+      const listId = parseInt(req.params.id);
+      if (isNaN(listId)) {
+        return res.status(400).json({ message: "Invalid list ID" });
+      }
 
-    const list = await storage.getListById(listId);
-    if (!list) {
-      return res.status(404).json({ message: "List not found" });
-    }
+      const list = await storage.getListById(listId);
+      if (!list) {
+        return res.status(404).json({ message: "List not found" });
+      }
 
-    res.json(list);
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching list:", error);
+      res.status(500).json({ message: "Failed to fetch list" });
+    }
   });
 
   router.post("/api/lists", async (req, res) => {
     try {
       const listData = insertListSchema.parse(req.body);
+      console.log("Creating list:", listData);
       const newList = await storage.createList(listData);
+      console.log("List created:", newList);
       res.status(201).json(newList);
     } catch (error) {
+      console.error("Error creating list:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid list data", errors: error.errors });
       }
@@ -252,12 +260,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.put("/api/lists/:id", async (req, res) => {
-    const listId = parseInt(req.params.id);
-    if (isNaN(listId)) {
-      return res.status(400).json({ message: "Invalid list ID" });
-    }
-
     try {
+      const listId = parseInt(req.params.id);
+      if (isNaN(listId)) {
+        return res.status(400).json({ message: "Invalid list ID" });
+      }
+
       const listData = insertListSchema.partial().parse(req.body);
       const updatedList = await storage.updateList(listId, listData);
       
@@ -267,6 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedList);
     } catch (error) {
+      console.error("Error updating list:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid list data", errors: error.errors });
       }
@@ -275,21 +284,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.delete("/api/lists/:id", async (req, res) => {
-    const listId = parseInt(req.params.id);
-    if (isNaN(listId)) {
-      return res.status(400).json({ message: "Invalid list ID" });
-    }
+    try {
+      const listId = parseInt(req.params.id);
+      if (isNaN(listId)) {
+        return res.status(400).json({ message: "Invalid list ID" });
+      }
 
-    await storage.deleteList(listId);
-    res.status(204).end();
+      await storage.deleteList(listId);
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting list:", error);
+      res.status(500).json({ message: "Failed to delete list" });
+    }
   });
 
   router.post("/api/list-items", async (req, res) => {
     try {
       const listItemData = insertListItemSchema.parse(req.body);
+      console.log("Adding item to list:", listItemData);
       const newListItem = await storage.addToList(listItemData);
+      console.log("Item added to list:", newListItem);
       res.status(201).json(newListItem);
     } catch (error) {
+      console.error("Error adding item to list:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid list item data", errors: error.errors });
       }
@@ -298,37 +315,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   router.delete("/api/lists/:listId/items/:mediaId", async (req, res) => {
-    const listId = parseInt(req.params.listId);
-    const mediaId = parseInt(req.params.mediaId);
-    
-    if (isNaN(listId) || isNaN(mediaId)) {
-      return res.status(400).json({ message: "Invalid ID" });
-    }
+    try {
+      const listId = parseInt(req.params.listId);
+      const mediaId = parseInt(req.params.mediaId);
+      
+      if (isNaN(listId) || isNaN(mediaId)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
 
-    await storage.removeFromList(listId, mediaId);
-    res.status(204).end();
+      await storage.removeFromList(listId, mediaId);
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error removing item from list:", error);
+      res.status(500).json({ message: "Failed to remove item from list" });
+    }
   });
 
   // Stats endpoints
   router.get("/api/users/:userId/stats", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    try {
+      const userId = req.params.userId;
+      const stats = await storage.getUserStats(userId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user stats" });
     }
-
-    const stats = await storage.getUserStats(userId);
-    res.json(stats);
   });
 
+  // Activity endpoint
   router.get("/api/users/:userId/activity", async (req, res) => {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    try {
+      const userId = req.params.userId;
+      const activity = await storage.getRecentActivity(userId);
+      res.json(activity);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch activity" });
     }
+  });
 
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-    const activity = await storage.getRecentActivity(userId, limit);
-    res.json(activity);
+  // Rating endpoint
+  router.post("/api/media/:mediaId/rate", async (req, res) => {
+    try {
+      const mediaId = parseInt(req.params.mediaId);
+      const { userId, rating } = req.body;
+      
+      if (isNaN(mediaId) || !userId || typeof rating !== 'number' || rating < 0 || rating > 10) {
+        return res.status(400).json({ message: "Invalid rating data" });
+      }
+
+      // Add to watched with rating
+      const watchedData = {
+        userId,
+        mediaId,
+        rating,
+      };
+      
+      // Check if already marked as watched
+      const isWatched = await storage.isWatched(userId, mediaId);
+      if (isWatched) {
+        // Update the existing entry
+        await storage.removeFromWatched(userId, mediaId);
+      }
+      
+      const newWatchedItem = await storage.addToWatched(watchedData);
+      res.status(201).json(newWatchedItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to rate media item" });
+    }
   });
 
   // Register API router

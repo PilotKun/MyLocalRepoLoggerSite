@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import AuthModal from "@/components/auth/AuthModal";
+import { useAuth } from "@/components/auth/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -13,11 +20,21 @@ export default function Header({ toggleSidebar }: HeaderProps) {
   const [, navigate] = useLocation();
   const { theme, setTheme } = useTheme();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { currentUser, logOut } = useAuth();
   
   // Search functionality removed as it redirects to search page directly
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   return (
@@ -52,7 +69,36 @@ export default function Header({ toggleSidebar }: HeaderProps) {
           </Link>
         </div>
         <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:space-x-4">
-          <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
+          {currentUser ? (
+            <>
+              <Button variant="ghost" onClick={() => navigate("/my-lists")}>
+                My Lists
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/watchlist")}>
+                    Watchlist
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/favorites")}>
+                    Favorites
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

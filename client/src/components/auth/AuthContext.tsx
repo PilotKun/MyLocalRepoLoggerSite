@@ -13,6 +13,7 @@ import {
   getRedirectResult
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { createOrUpdateUser } from '@/lib/api';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -51,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const result = await getRedirectResult(auth);
         if (result) {
           console.log("Google sign-in redirect result:", result.user.uid);
-          // You can dispatch an event or show a toast here
+          // Create or update user in database
+          await createOrUpdateUser(result.user);
         }
       } catch (error) {
         console.error("Error handling redirect result:", error);
@@ -63,8 +65,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     handleRedirectResult();
     
     // Then set up the auth state listener
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("Auth state changed:", user ? `User ${user.uid} logged in` : "No user");
+      if (user) {
+        try {
+          // Create or update user in database whenever auth state changes to logged in
+          await createOrUpdateUser(user);
+        } catch (error) {
+          console.error("Error creating/updating user in database:", error);
+        }
+      }
       setCurrentUser(user);
       if (loading) setLoading(false);
     });
@@ -87,6 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
+      // Create user in database
+      await createOrUpdateUser(userCredential.user);
+      
       console.log("User created successfully:", userCredential.user.uid);
       return userCredential;
     } catch (error: any) {
@@ -102,6 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("Attempting to sign in with email:", email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Create or update user in database
+      await createOrUpdateUser(userCredential.user);
+      
       console.log("User signed in successfully:", userCredential.user.uid);
       return userCredential;
     } catch (error: any) {
@@ -146,7 +163,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         // On desktop, use popup
         console.log("Using popup for Google auth");
-        return await signInWithPopup(auth, provider);
+        const userCredential = await signInWithPopup(auth, provider);
+        
+        // Create or update user in database
+        await createOrUpdateUser(userCredential.user);
+        
+        return userCredential;
       }
     } catch (error: any) {
       if (error.code !== 'auth/cancelled-popup-request' && 

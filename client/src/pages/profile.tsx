@@ -7,35 +7,35 @@ import { Pencil, Settings, FileText, CheckSquare, Star, Clock } from "lucide-rea
 import StatsCard from "@/components/user/StatsCard";
 import ActivityItem from "@/components/user/ActivityItem";
 import MediaGrid from "@/components/media/MediaGrid";
+import { useAuth } from "@/components/auth/AuthContext";
 
 export default function Profile() {
-  // Mock user ID - this would come from auth context in a real app
-  const userId = 1;
-  const [activeTab, setActiveTab] = useState<"overview" | "watched" | "lists" | "stats">("overview");
+  const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<"overview" | "lists" | "stats">("overview");
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Fetch user profile
   const { data: user } = useQuery({
-    queryKey: [`/api/users/${userId}`],
+    queryKey: [`/api/users/${currentUser?.uid}`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}`);
         return await response.json();
       } catch (error) {
-        // Return null if not authenticated
         return null;
       }
     },
+    enabled: !!currentUser,
   });
 
   // Fetch user stats
   const { data: stats } = useQuery({
-    queryKey: [`/api/users/${userId}/stats`],
+    queryKey: [`/api/users/${currentUser?.uid}/stats`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/stats`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/stats`);
         return await response.json();
       } catch (error) {
-        // Return default stats if not authenticated
         return {
           moviesWatched: 0,
           tvEpisodesWatched: 0,
@@ -44,14 +44,15 @@ export default function Profile() {
         };
       }
     },
+    enabled: !!currentUser,
   });
 
   // Fetch recent activity
   const { data: activity } = useQuery({
-    queryKey: [`/api/users/${userId}/activity`],
+    queryKey: [`/api/users/${currentUser?.uid}/activity`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/activity`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/activity`);
         return await response.json();
       } catch (error) {
         // Return empty array if not authenticated
@@ -62,25 +63,25 @@ export default function Profile() {
 
   // Fetch watched items
   const { data: watched, isLoading: watchedLoading } = useQuery({
-    queryKey: [`/api/users/${userId}/watched`],
+    queryKey: [`/api/users/${currentUser?.uid}/watched`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/watched`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/watched`);
         return await response.json();
       } catch (error) {
         // Return empty array if not authenticated
         return [];
       }
     },
-    enabled: activeTab === "watched",
+    enabled: !!currentUser,
   });
 
   // Fetch user's lists
   const { data: lists, isLoading: listsLoading } = useQuery({
-    queryKey: [`/api/users/${userId}/lists`],
+    queryKey: [`/api/users/${currentUser?.uid}/lists`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/lists`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/lists`);
         return await response.json();
       } catch (error) {
         // Return empty array if not authenticated
@@ -90,17 +91,14 @@ export default function Profile() {
     enabled: activeTab === "lists",
   });
 
-  // Mock data for the empty state
-  const isAuthenticated = false; // This would come from auth context
-
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return (
       <div className="container flex flex-col items-center justify-center px-4 py-16 text-center md:px-6">
         <h1 className="mb-4 text-3xl font-bold">Your Profile</h1>
         <p className="mb-8 max-w-md text-muted-foreground">
           Sign in to view and manage your profile, track your watch history, and see your stats.
         </p>
-        <Button>Sign In</Button>
+        <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
       </div>
     );
   }
@@ -147,7 +145,6 @@ export default function Profile() {
       <Tabs defaultValue="overview" value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="watched">Watched</TabsTrigger>
           <TabsTrigger value="lists">Lists</TabsTrigger>
           <TabsTrigger value="stats">Stats</TabsTrigger>
         </TabsList>
@@ -209,15 +206,13 @@ export default function Profile() {
               </div>
             </div>
           </div>
-        </TabsContent>
 
-        <TabsContent value="watched">
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold tracking-tight">Watch History</h2>
+          <div className="mt-8 space-y-6">
+            <h2 className="text-2xl font-bold tracking-tight">Recently Watched</h2>
             <MediaGrid
-              items={watched?.map((item: any) => item.media) || []}
+              items={watched?.slice(0, 6).map((item: any) => item.media) || []}
               isLoading={watchedLoading}
-              emptyMessage="Your watch history is empty."
+              emptyMessage="You haven't watched anything yet."
             />
           </div>
         </TabsContent>

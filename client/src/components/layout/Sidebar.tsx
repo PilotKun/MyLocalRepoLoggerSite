@@ -79,16 +79,6 @@ export default function Sidebar({ className }: SidebarProps) {
               Watchlist
             </Link>
             <Link 
-              href="/watched"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-4 py-2 text-foreground/70 transition-colors hover:text-foreground",
-                isActive("/watched") && "bg-accent text-accent-foreground"
-              )}
-            >
-              <Apple className="h-4 w-4" />
-              Watched
-            </Link>
-            <Link 
               href="/favorites"
               className={cn(
                 "flex items-center gap-3 rounded-lg px-4 py-2 text-foreground/70 transition-colors hover:text-foreground",

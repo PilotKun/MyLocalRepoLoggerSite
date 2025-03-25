@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/auth/AuthContext";
 
 interface AuthModalProps {
-  isOpen: boolean;
   onClose: () => void;
 }
 
@@ -40,11 +39,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           description: "Welcome back to CineLog!",
         });
       } else {
-        await signUp(email, password);
-        // Optional: Update user profile with name
-        // if (auth.currentUser) {
-        //   await updateProfile(auth.currentUser, { displayName: name });
-        // }
+        await signUp(email, password, name);
         toast({
           title: "Account created",
           description: "Welcome to CineLog!",
@@ -123,7 +118,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog defaultOpen={true} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{mode === 'signin' ? 'Sign In' : 'Sign Up'}</DialogTitle>
@@ -202,21 +197,23 @@ export default function AuthModal({ onClose }: AuthModalProps) {
             />
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Loading...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button type="submit" disabled={isLoading}>
+              {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="text-xs"
+              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+              disabled={isLoading}
+            >
+              {mode === 'signin'
+                ? "Don't have an account? Sign up"
+                : 'Already have an account? Sign in'}
+            </Button>
+          </div>
         </form>
-        
-        <div className="mt-4 text-center text-sm">
-          {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
-          <button
-            type="button"
-            className="font-medium text-primary underline-offset-4 hover:underline"
-            onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-          >
-            {mode === 'signin' ? 'Sign up' : 'Sign in'}
-          </button>
-        </div>
       </DialogContent>
     </Dialog>
   );

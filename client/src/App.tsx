@@ -18,7 +18,6 @@ import Search from "@/pages/search";
 import Movies from "@/pages/movies";
 import TVShows from "@/pages/tv-shows";
 import Watchlist from "@/pages/watchlist";
-import Watched from "@/pages/watched";
 import Favorites from "@/pages/favorites";
 import Lists from "@/pages/lists";
 import Profile from "@/pages/profile";
@@ -45,7 +44,6 @@ function Router() {
             <Route path="/movies" component={Movies} />
             <Route path="/tv-shows" component={TVShows} />
             <Route path="/watchlist" component={Watchlist} />
-            <Route path="/watched" component={Watched} />
             <Route path="/favorites" component={Favorites} />
             <Route path="/lists" component={Lists} />
             <Route path="/profile" component={Profile} />

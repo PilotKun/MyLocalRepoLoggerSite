@@ -20,7 +20,7 @@ export default function MediaCard({
   const title = isMovie ? media.title : media.name;
   const releaseDate = isMovie ? media.release_date : media.first_air_date;
   const year = releaseDate ? new Date(releaseDate).getFullYear() : "";
-  const rating = media.vote_average.toFixed(1);
+  const rating = media.vote_average ? media.vote_average.toFixed(1) : "N/A";
   
   return (
     <div className="flex flex-col overflow-hidden rounded-md border shadow-sm transition-all hover:shadow-md">

@@ -4,15 +4,13 @@ import { z } from "zod";
 
 // User model
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name"),
-  email: text("email").notNull().unique(),
-  image: text("image"),
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  displayName: text("display_name"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
   createdAt: true,
 });
 
@@ -23,8 +21,12 @@ export const mediaItems = pgTable("media_items", {
   type: text("type").notNull(), // 'movie' or 'tv'
   title: text("title").notNull(),
   posterPath: text("poster_path"),
+  backdropPath: text("backdrop_path"),
+  overview: text("overview"),
   releaseDate: text("release_date"),
   voteAverage: integer("vote_average"),
+  episodeCount: integer("episode_count"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertMediaItemSchema = createInsertSchema(mediaItems).omit({
@@ -34,47 +36,47 @@ export const insertMediaItemSchema = createInsertSchema(mediaItems).omit({
 // Watchlist model
 export const watchlistItems = pgTable("watchlist_items", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: text("user_id").notNull(),
   mediaId: integer("media_id").notNull(),
-  addedAt: timestamp("added_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertWatchlistItemSchema = createInsertSchema(watchlistItems).omit({
   id: true,
-  addedAt: true,
+  createdAt: true,
 });
 
 // Watched model
 export const watchedItems = pgTable("watched_items", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: text("user_id").notNull(),
   mediaId: integer("media_id").notNull(),
   rating: integer("rating"),
-  watchedAt: timestamp("watched_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertWatchedItemSchema = createInsertSchema(watchedItems).omit({
   id: true,
-  watchedAt: true,
+  createdAt: true,
 });
 
 // Favorites model
 export const favoriteItems = pgTable("favorite_items", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: text("user_id").notNull(),
   mediaId: integer("media_id").notNull(),
-  addedAt: timestamp("added_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertFavoriteItemSchema = createInsertSchema(favoriteItems).omit({
   id: true,
-  addedAt: true,
+  createdAt: true,
 });
 
 // Custom lists model
 export const lists = pgTable("lists", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
   isPublic: boolean("is_public").default(false),
@@ -91,12 +93,12 @@ export const listItems = pgTable("list_items", {
   id: serial("id").primaryKey(),
   listId: integer("list_id").notNull(),
   mediaId: integer("media_id").notNull(),
-  addedAt: timestamp("added_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertListItemSchema = createInsertSchema(listItems).omit({
   id: true,
-  addedAt: true,
+  createdAt: true,
 });
 
 // Types

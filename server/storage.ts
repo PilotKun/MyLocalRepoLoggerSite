@@ -9,11 +9,11 @@ import {
   users, mediaItems, watchlistItems, watchedItems, favoriteItems, lists, listItems
 } from "@shared/schema";
 import { db } from './db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, count, avg, desc } from 'drizzle-orm';
 
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
@@ -23,25 +23,25 @@ export interface IStorage {
   createMediaItem(item: InsertMediaItem): Promise<MediaItem>;
 
   // Watchlist operations
-  getWatchlistByUserId(userId: number): Promise<(WatchlistItem & { media: MediaItem })[]>;
+  getWatchlistByUserId(userId: string): Promise<(WatchlistItem & { media: MediaItem })[]>;
   addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem>;
-  removeFromWatchlist(userId: number, mediaId: number): Promise<void>;
-  isInWatchlist(userId: number, mediaId: number): Promise<boolean>;
+  removeFromWatchlist(userId: string, mediaId: number): Promise<void>;
+  isInWatchlist(userId: string, mediaId: number): Promise<boolean>;
 
   // Watched operations
-  getWatchedByUserId(userId: number): Promise<(WatchedItem & { media: MediaItem })[]>;
+  getWatchedByUserId(userId: string): Promise<(WatchedItem & { media: MediaItem })[]>;
   addToWatched(item: InsertWatchedItem): Promise<WatchedItem>;
-  removeFromWatched(userId: number, mediaId: number): Promise<void>;
-  isWatched(userId: number, mediaId: number): Promise<boolean>;
+  removeFromWatched(userId: string, mediaId: number): Promise<void>;
+  isWatched(userId: string, mediaId: number): Promise<boolean>;
   
   // Favorites operations
-  getFavoritesByUserId(userId: number): Promise<(FavoriteItem & { media: MediaItem })[]>;
+  getFavoritesByUserId(userId: string): Promise<(FavoriteItem & { media: MediaItem })[]>;
   addToFavorites(item: InsertFavoriteItem): Promise<FavoriteItem>;
-  removeFromFavorites(userId: number, mediaId: number): Promise<void>;
-  isInFavorites(userId: number, mediaId: number): Promise<boolean>;
+  removeFromFavorites(userId: string, mediaId: number): Promise<void>;
+  isInFavorites(userId: string, mediaId: number): Promise<boolean>;
   
   // Lists operations
-  getListsByUserId(userId: number): Promise<List[]>;
+  getListsByUserId(userId: string): Promise<List[]>;
   getListById(id: number): Promise<(List & { items: (ListItem & { media: MediaItem })[] }) | undefined>;
   createList(list: InsertList): Promise<List>;
   updateList(id: number, updates: Partial<InsertList>): Promise<List | undefined>;
@@ -52,20 +52,50 @@ export interface IStorage {
   removeFromList(listId: number, mediaId: number): Promise<void>;
   
   // Stats operations
-  getUserStats(userId: number): Promise<{
+  getUserStats(userId: string): Promise<{
     moviesWatched: number;
     tvEpisodesWatched: number;
     averageRating: number;
     totalWatchtime: number;
   }>;
 
-  getRecentActivity(userId: number, limit?: number): Promise<(WatchedItem | WatchlistItem | FavoriteItem)[]>;
+  getRecentActivity(userId: string, limit?: number): Promise<ActivityItem[]>;
 }
+
+type ActivityItem = {
+  id: number;
+  userId: string;
+  mediaId: number;
+  createdAt: Date;
+  type: 'watched' | 'favorite' | 'added_to_list';
+  rating?: number | null;
+  media: {
+    id: number;
+    tmdbId: number;
+    type: string;
+    title: string;
+    posterPath: string | null;
+    backdropPath: string | null;
+    overview: string | null;
+    releaseDate: string | null;
+    voteAverage: number | null;
+    episodeCount: number | null;
+    createdAt: Date | null;
+  };
+  list?: {
+    id: number;
+    userId: string;
+    name: string;
+    description: string | null;
+    isPublic: boolean;
+    createdAt: Date;
+  } | null;
+};
 
 // PostgreSQL implementation
 export class PostgresStorage implements IStorage {
   // User operations
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];
   }
@@ -102,20 +132,39 @@ export class PostgresStorage implements IStorage {
   }
 
   // Watchlist operations
-  async getWatchlistByUserId(userId: number): Promise<(WatchlistItem & { media: MediaItem })[]> {
+  async getWatchlistByUserId(userId: string): Promise<(WatchlistItem & { media: MediaItem })[]> {
     const result = await db
       .select({
         id: watchlistItems.id,
         userId: watchlistItems.userId,
         mediaId: watchlistItems.mediaId,
-        addedAt: watchlistItems.addedAt,
-        media: mediaItems
+        createdAt: watchlistItems.createdAt,
+        media: {
+          id: mediaItems.id,
+          tmdbId: mediaItems.tmdbId,
+          type: mediaItems.type,
+          title: mediaItems.title,
+          posterPath: mediaItems.posterPath,
+          backdropPath: mediaItems.backdropPath,
+          overview: mediaItems.overview,
+          releaseDate: mediaItems.releaseDate,
+          voteAverage: mediaItems.voteAverage,
+          episodeCount: mediaItems.episodeCount,
+          createdAt: mediaItems.createdAt,
+        },
       })
       .from(watchlistItems)
       .innerJoin(mediaItems, eq(watchlistItems.mediaId, mediaItems.id))
       .where(eq(watchlistItems.userId, userId));
     
-    return result;
+    return result.map(item => ({
+      ...item,
+      createdAt: item.createdAt ?? new Date(),
+      media: {
+        ...item.media,
+        createdAt: item.media.createdAt ?? null,
+      },
+    }));
   }
 
   async addToWatchlist(item: InsertWatchlistItem): Promise<WatchlistItem> {
@@ -123,41 +172,65 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
-  async removeFromWatchlist(userId: number, mediaId: number): Promise<void> {
-    await db.delete(watchlistItems).where(
-      and(
-        eq(watchlistItems.userId, userId),
-        eq(watchlistItems.mediaId, mediaId)
-      )
-    );
+  async removeFromWatchlist(userId: string, mediaId: number): Promise<void> {
+    await db
+      .delete(watchlistItems)
+      .where(
+        and(
+          eq(watchlistItems.userId, userId),
+          eq(watchlistItems.mediaId, mediaId)
+        )
+      );
   }
 
-  async isInWatchlist(userId: number, mediaId: number): Promise<boolean> {
-    const result = await db.select().from(watchlistItems).where(
-      and(
-        eq(watchlistItems.userId, userId),
-        eq(watchlistItems.mediaId, mediaId)
-      )
-    );
+  async isInWatchlist(userId: string, mediaId: number): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(watchlistItems)
+      .where(
+        and(
+          eq(watchlistItems.userId, userId),
+          eq(watchlistItems.mediaId, mediaId)
+        )
+      );
     return result.length > 0;
   }
 
   // Watched operations
-  async getWatchedByUserId(userId: number): Promise<(WatchedItem & { media: MediaItem })[]> {
+  async getWatchedByUserId(userId: string): Promise<(WatchedItem & { media: MediaItem })[]> {
     const result = await db
       .select({
         id: watchedItems.id,
         userId: watchedItems.userId,
         mediaId: watchedItems.mediaId,
         rating: watchedItems.rating,
-        watchedAt: watchedItems.watchedAt,
-        media: mediaItems
+        createdAt: watchedItems.createdAt,
+        media: {
+          id: mediaItems.id,
+          tmdbId: mediaItems.tmdbId,
+          type: mediaItems.type,
+          title: mediaItems.title,
+          posterPath: mediaItems.posterPath,
+          backdropPath: mediaItems.backdropPath,
+          overview: mediaItems.overview,
+          releaseDate: mediaItems.releaseDate,
+          voteAverage: mediaItems.voteAverage,
+          episodeCount: mediaItems.episodeCount,
+          createdAt: mediaItems.createdAt,
+        },
       })
       .from(watchedItems)
       .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
       .where(eq(watchedItems.userId, userId));
     
-    return result;
+    return result.map(item => ({
+      ...item,
+      createdAt: item.createdAt ?? new Date(),
+      media: {
+        ...item.media,
+        createdAt: item.media.createdAt ?? null,
+      },
+    }));
   }
 
   async addToWatched(item: InsertWatchedItem): Promise<WatchedItem> {
@@ -165,40 +238,64 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
-  async removeFromWatched(userId: number, mediaId: number): Promise<void> {
-    await db.delete(watchedItems).where(
-      and(
-        eq(watchedItems.userId, userId),
-        eq(watchedItems.mediaId, mediaId)
-      )
-    );
+  async removeFromWatched(userId: string, mediaId: number): Promise<void> {
+    await db
+      .delete(watchedItems)
+      .where(
+        and(
+          eq(watchedItems.userId, userId),
+          eq(watchedItems.mediaId, mediaId)
+        )
+      );
   }
 
-  async isWatched(userId: number, mediaId: number): Promise<boolean> {
-    const result = await db.select().from(watchedItems).where(
-      and(
-        eq(watchedItems.userId, userId),
-        eq(watchedItems.mediaId, mediaId)
-      )
-    );
+  async isWatched(userId: string, mediaId: number): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(watchedItems)
+      .where(
+        and(
+          eq(watchedItems.userId, userId),
+          eq(watchedItems.mediaId, mediaId)
+        )
+      );
     return result.length > 0;
   }
 
   // Favorites operations
-  async getFavoritesByUserId(userId: number): Promise<(FavoriteItem & { media: MediaItem })[]> {
+  async getFavoritesByUserId(userId: string): Promise<(FavoriteItem & { media: MediaItem })[]> {
     const result = await db
       .select({
         id: favoriteItems.id,
         userId: favoriteItems.userId,
         mediaId: favoriteItems.mediaId,
-        addedAt: favoriteItems.addedAt,
-        media: mediaItems
+        createdAt: favoriteItems.createdAt,
+        media: {
+          id: mediaItems.id,
+          tmdbId: mediaItems.tmdbId,
+          type: mediaItems.type,
+          title: mediaItems.title,
+          posterPath: mediaItems.posterPath,
+          backdropPath: mediaItems.backdropPath,
+          overview: mediaItems.overview,
+          releaseDate: mediaItems.releaseDate,
+          voteAverage: mediaItems.voteAverage,
+          episodeCount: mediaItems.episodeCount,
+          createdAt: mediaItems.createdAt,
+        },
       })
       .from(favoriteItems)
       .innerJoin(mediaItems, eq(favoriteItems.mediaId, mediaItems.id))
       .where(eq(favoriteItems.userId, userId));
     
-    return result;
+    return result.map(item => ({
+      ...item,
+      createdAt: item.createdAt ?? new Date(),
+      media: {
+        ...item.media,
+        createdAt: item.media.createdAt ?? null,
+      },
+    }));
   }
 
   async addToFavorites(item: InsertFavoriteItem): Promise<FavoriteItem> {
@@ -206,213 +303,381 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
-  async removeFromFavorites(userId: number, mediaId: number): Promise<void> {
-    await db.delete(favoriteItems).where(
-      and(
-        eq(favoriteItems.userId, userId),
-        eq(favoriteItems.mediaId, mediaId)
-      )
-    );
+  async removeFromFavorites(userId: string, mediaId: number): Promise<void> {
+    await db
+      .delete(favoriteItems)
+      .where(
+        and(
+          eq(favoriteItems.userId, userId),
+          eq(favoriteItems.mediaId, mediaId)
+        )
+      );
   }
 
-  async isInFavorites(userId: number, mediaId: number): Promise<boolean> {
-    const result = await db.select().from(favoriteItems).where(
-      and(
-        eq(favoriteItems.userId, userId),
-        eq(favoriteItems.mediaId, mediaId)
-      )
-    );
+  async isInFavorites(userId: string, mediaId: number): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(favoriteItems)
+      .where(
+        and(
+          eq(favoriteItems.userId, userId),
+          eq(favoriteItems.mediaId, mediaId)
+        )
+      );
     return result.length > 0;
   }
 
   // Lists operations
-  async getListsByUserId(userId: number): Promise<List[]> {
-    const result = await db
-      .select()
-      .from(lists)
-      .where(eq(lists.userId, userId));
-    
-    return result;
+  async getListsByUserId(userId: string): Promise<List[]> {
+    try {
+      console.log("Fetching lists for user:", userId);
+      const result = await db
+        .select({
+          id: lists.id,
+          userId: lists.userId,
+          name: lists.name,
+          description: lists.description,
+          isPublic: lists.isPublic,
+          createdAt: lists.createdAt,
+        })
+        .from(lists)
+        .where(eq(lists.userId, userId));
+      
+      console.log("Found lists:", result);
+      return result.map(list => ({
+        ...list,
+        createdAt: list.createdAt ?? new Date(),
+        isPublic: list.isPublic ?? false,
+      }));
+    } catch (error) {
+      console.error("Error fetching lists:", error);
+      throw error;
+    }
   }
 
   async getListById(id: number): Promise<(List & { items: (ListItem & { media: MediaItem })[] }) | undefined> {
-    const listResult = await db
-      .select()
-      .from(lists)
-      .where(eq(lists.id, id));
-    
-    if (listResult.length === 0) {
-      return undefined;
-    }
-    
-    const list = listResult[0];
-    
-    const itemsResult = await db
-      .select({
-        id: listItems.id,
-        listId: listItems.listId,
-        mediaId: listItems.mediaId,
-        addedAt: listItems.addedAt,
-        media: mediaItems
+    try {
+      console.log("Fetching list by ID:", id);
+      const result = await db.select({
+        id: lists.id,
+        userId: lists.userId,
+        name: lists.name,
+        description: lists.description,
+        isPublic: lists.isPublic,
+        createdAt: lists.createdAt,
+        items: sql<(ListItem & { media: MediaItem })[]>`
+          COALESCE(
+            ARRAY_AGG(
+              json_build_object(
+                'id', ${listItems.id},
+                'listId', ${listItems.listId},
+                'mediaId', ${listItems.mediaId},
+                'createdAt', ${listItems.createdAt},
+                'media', json_build_object(
+                  'id', ${mediaItems.id},
+                  'tmdbId', ${mediaItems.tmdbId},
+                  'type', ${mediaItems.type},
+                  'title', ${mediaItems.title},
+                  'posterPath', ${mediaItems.posterPath},
+                  'backdropPath', ${mediaItems.backdropPath},
+                  'overview', ${mediaItems.overview},
+                  'releaseDate', ${mediaItems.releaseDate},
+                  'voteAverage', ${mediaItems.voteAverage},
+                  'episodeCount', ${mediaItems.episodeCount},
+                  'createdAt', ${mediaItems.createdAt}
+                )
+              )
+            ) FILTER (WHERE ${listItems.id} IS NOT NULL),
+            ARRAY[]::json[]
+          )
+        `
       })
-      .from(listItems)
-      .innerJoin(mediaItems, eq(listItems.mediaId, mediaItems.id))
-      .where(eq(listItems.listId, id));
-    
-    return {
-      ...list,
-      items: itemsResult
-    };
+      .from(lists)
+      .leftJoin(listItems, eq(lists.id, listItems.listId))
+      .leftJoin(mediaItems, eq(listItems.mediaId, mediaItems.id))
+      .where(eq(lists.id, id))
+      .groupBy(lists.id);
+
+      if (!result[0]) {
+        console.log("List not found:", id);
+        return undefined;
+      }
+
+      console.log("Found list:", result[0]);
+      return {
+        ...result[0],
+        createdAt: result[0].createdAt ?? new Date(),
+        isPublic: result[0].isPublic ?? false,
+        items: result[0].items.map(item => ({
+          ...item,
+          createdAt: item.createdAt ?? new Date(),
+          media: {
+            ...item.media,
+            createdAt: item.media.createdAt ?? null,
+          }
+        }))
+      };
+    } catch (error) {
+      console.error("Error fetching list:", error);
+      throw error;
+    }
   }
 
   async createList(list: InsertList): Promise<List> {
-    const result = await db.insert(lists).values(list).returning();
-    return result[0];
+    try {
+      console.log("Creating list:", list);
+      const result = await db.insert(lists).values({
+        ...list,
+        isPublic: list.isPublic ?? false,
+      }).returning();
+      
+      console.log("List created:", result[0]);
+      return {
+        ...result[0],
+        createdAt: result[0].createdAt ?? new Date(),
+        isPublic: result[0].isPublic ?? false,
+      };
+    } catch (error) {
+      console.error("Error creating list:", error);
+      throw error;
+    }
   }
 
   async updateList(id: number, updates: Partial<InsertList>): Promise<List | undefined> {
-    const result = await db
-      .update(lists)
-      .set(updates)
-      .where(eq(lists.id, id))
-      .returning();
-    
-    return result[0];
+    try {
+      console.log("Updating list:", id, updates);
+      const result = await db
+        .update(lists)
+        .set(updates)
+        .where(eq(lists.id, id))
+        .returning();
+      
+      if (!result[0]) {
+        console.log("List not found:", id);
+        return undefined;
+      }
+
+      console.log("List updated:", result[0]);
+      return {
+        ...result[0],
+        createdAt: result[0].createdAt ?? new Date(),
+        isPublic: result[0].isPublic ?? false,
+      };
+    } catch (error) {
+      console.error("Error updating list:", error);
+      throw error;
+    }
   }
 
   async deleteList(id: number): Promise<void> {
-    // First delete all items in the list
-    await db.delete(listItems).where(eq(listItems.listId, id));
-    
-    // Then delete the list itself
-    await db.delete(lists).where(eq(lists.id, id));
+    try {
+      console.log("Deleting list:", id);
+      // First delete all items in the list
+      await db.delete(listItems).where(eq(listItems.listId, id));
+      
+      // Then delete the list itself
+      await db.delete(lists).where(eq(lists.id, id));
+      console.log("List deleted:", id);
+    } catch (error) {
+      console.error("Error deleting list:", error);
+      throw error;
+    }
   }
 
   // List items operations
   async addToList(item: InsertListItem): Promise<ListItem> {
-    const result = await db.insert(listItems).values(item).returning();
-    return result[0];
+    try {
+      console.log("Adding item to list:", item);
+      const result = await db.insert(listItems).values(item).returning();
+      console.log("Item added to list:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error("Error adding item to list:", error);
+      throw error;
+    }
   }
 
   async removeFromList(listId: number, mediaId: number): Promise<void> {
-    await db.delete(listItems).where(
-      and(
-        eq(listItems.listId, listId),
-        eq(listItems.mediaId, mediaId)
-      )
-    );
+    try {
+      console.log("Removing item from list:", listId, mediaId);
+      await db.delete(listItems).where(
+        and(
+          eq(listItems.listId, listId),
+          eq(listItems.mediaId, mediaId)
+        )
+      );
+      console.log("Item removed from list:", listId, mediaId);
+    } catch (error) {
+      console.error("Error removing item from list:", error);
+      throw error;
+    }
   }
 
   // Stats operations
-  async getUserStats(userId: number): Promise<{
+  async getUserStats(userId: string): Promise<{
     moviesWatched: number;
     tvEpisodesWatched: number;
     averageRating: number;
     totalWatchtime: number;
   }> {
-    // Get count of watched movies
-    const moviesResult = await db
-      .select({ count: db.fn.count() })
-      .from(watchedItems)
-      .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
-      .where(
-        and(
-          eq(watchedItems.userId, userId),
-          eq(mediaItems.type, 'movie')
-        )
-      );
-    const moviesWatched = Number(moviesResult[0]?.count || 0);
-    
-    // Get count of watched TV episodes
-    const tvResult = await db
-      .select({ count: db.fn.count() })
-      .from(watchedItems)
-      .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
-      .where(
-        and(
-          eq(watchedItems.userId, userId),
-          eq(mediaItems.type, 'tv')
-        )
-      );
-    const tvEpisodesWatched = Number(tvResult[0]?.count || 0);
-    
-    // Calculate average rating
-    const ratingsResult = await db
-      .select({ avg: db.fn.avg(watchedItems.rating) })
-      .from(watchedItems)
-      .where(eq(watchedItems.userId, userId));
-    const averageRating = Number(ratingsResult[0]?.avg || 0);
-    
-    // Estimate total watchtime (hours)
-    const totalWatchtime = (moviesWatched * 2) + (tvEpisodesWatched * 1);
-    
+    const [moviesResult, tvResult, ratingResult] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(watchedItems)
+        .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
+        .where(and(eq(watchedItems.userId, userId), eq(mediaItems.type, 'movie')))
+        .then(res => res[0]?.count || 0),
+      
+      db
+        .select({ count: count() })
+        .from(watchedItems)
+        .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
+        .where(and(eq(watchedItems.userId, userId), eq(mediaItems.type, 'tv')))
+        .then(res => res[0]?.count || 0),
+      
+      db
+        .select({ average: avg(watchedItems.rating) })
+        .from(watchedItems)
+        .where(eq(watchedItems.userId, userId))
+        .then(res => res[0]?.average || 0)
+    ]);
+
     return {
-      moviesWatched,
-      tvEpisodesWatched,
-      averageRating,
-      totalWatchtime
+      moviesWatched: Number(moviesResult),
+      tvEpisodesWatched: Number(tvResult),
+      averageRating: Number(ratingResult),
+      totalWatchtime: 0, // TODO: Implement runtime calculation
     };
   }
 
-  async getRecentActivity(userId: number, limit: number = 10): Promise<any[]> {
-    // Get recent watched items
-    const watched = await db
-      .select({
-        id: watchedItems.id,
-        userId: watchedItems.userId,
-        mediaId: watchedItems.mediaId,
-        type: db.sql`'watched'`.as('type'),
-        date: watchedItems.watchedAt,
-        rating: watchedItems.rating
-      })
-      .from(watchedItems)
-      .where(eq(watchedItems.userId, userId))
-      .limit(limit);
-    
-    // Get recent watchlist items
-    const watchlist = await db
-      .select({
-        id: watchlistItems.id,
-        userId: watchlistItems.userId,
-        mediaId: watchlistItems.mediaId,
-        type: db.sql`'watchlist'`.as('type'),
-        date: watchlistItems.addedAt
-      })
-      .from(watchlistItems)
-      .where(eq(watchlistItems.userId, userId))
-      .limit(limit);
-    
-    // Get recent favorite items
-    const favorites = await db
-      .select({
-        id: favoriteItems.id,
-        userId: favoriteItems.userId,
-        mediaId: favoriteItems.mediaId,
-        type: db.sql`'favorite'`.as('type'),
-        date: favoriteItems.addedAt
-      })
-      .from(favoriteItems)
-      .where(eq(favoriteItems.userId, userId))
-      .limit(limit);
-    
-    // Combine all activity and sort by date
-    const allActivity = [...watched, ...watchlist, ...favorites]
-      .sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB.getTime() - dateA.getTime();
-      })
-      .slice(0, limit);
-    
-    // For each activity item, fetch the media details
-    const activityWithMedia = await Promise.all(
-      allActivity.map(async (item) => {
-        const media = await this.getMediaItem(item.mediaId);
-        return { ...item, media };
-      })
-    );
-    
-    return activityWithMedia;
+  async getRecentActivity(userId: string): Promise<ActivityItem[]> {
+    // Get watched activity
+    const watchedActivity = await db.select({
+      id: watchedItems.id,
+      userId: watchedItems.userId,
+      mediaId: watchedItems.mediaId,
+      createdAt: watchedItems.createdAt,
+      rating: watchedItems.rating,
+      media: {
+        id: mediaItems.id,
+        tmdbId: mediaItems.tmdbId,
+        type: mediaItems.type,
+        title: mediaItems.title,
+        posterPath: mediaItems.posterPath,
+        backdropPath: mediaItems.backdropPath,
+        overview: mediaItems.overview,
+        releaseDate: mediaItems.releaseDate,
+        voteAverage: mediaItems.voteAverage,
+        episodeCount: mediaItems.episodeCount,
+        createdAt: mediaItems.createdAt,
+      },
+      type: sql<'watched'>`'watched'::text`,
+    })
+    .from(watchedItems)
+    .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
+    .where(eq(watchedItems.userId, userId))
+    .orderBy(desc(watchedItems.createdAt))
+    .limit(10);
+
+    // Get favorites activity
+    const favoritesActivity = await db.select({
+      id: favoriteItems.id,
+      userId: favoriteItems.userId,
+      mediaId: favoriteItems.mediaId,
+      createdAt: favoriteItems.createdAt,
+      media: {
+        id: mediaItems.id,
+        tmdbId: mediaItems.tmdbId,
+        type: mediaItems.type,
+        title: mediaItems.title,
+        posterPath: mediaItems.posterPath,
+        backdropPath: mediaItems.backdropPath,
+        overview: mediaItems.overview,
+        releaseDate: mediaItems.releaseDate,
+        voteAverage: mediaItems.voteAverage,
+        episodeCount: mediaItems.episodeCount,
+        createdAt: mediaItems.createdAt,
+      },
+      type: sql<'favorite'>`'favorite'::text`,
+    })
+    .from(favoriteItems)
+    .innerJoin(mediaItems, eq(favoriteItems.mediaId, mediaItems.id))
+    .where(eq(favoriteItems.userId, userId))
+    .orderBy(desc(favoriteItems.createdAt))
+    .limit(10);
+
+    // Get list activity
+    const listActivity = await db.select({
+      id: listItems.id,
+      userId: lists.userId,
+      mediaId: listItems.mediaId,
+      createdAt: listItems.createdAt,
+      media: {
+        id: mediaItems.id,
+        tmdbId: mediaItems.tmdbId,
+        type: mediaItems.type,
+        title: mediaItems.title,
+        posterPath: mediaItems.posterPath,
+        backdropPath: mediaItems.backdropPath,
+        overview: mediaItems.overview,
+        releaseDate: mediaItems.releaseDate,
+        voteAverage: mediaItems.voteAverage,
+        episodeCount: mediaItems.episodeCount,
+        createdAt: mediaItems.createdAt,
+      },
+      type: sql<'added_to_list'>`'added_to_list'::text`,
+      list: {
+        id: lists.id,
+        userId: lists.userId,
+        name: lists.name,
+        description: lists.description,
+        isPublic: sql<boolean>`COALESCE(${lists.isPublic}, false)`,
+        createdAt: lists.createdAt,
+      },
+    })
+    .from(listItems)
+    .innerJoin(mediaItems, eq(listItems.mediaId, mediaItems.id))
+    .innerJoin(lists, eq(listItems.listId, lists.id))
+    .where(eq(lists.userId, userId))
+    .orderBy(desc(listItems.createdAt))
+    .limit(10);
+
+    // Combine and sort all activities
+    const allActivity = [
+      ...watchedActivity.map(item => ({
+        ...item,
+        createdAt: item.createdAt ?? new Date(),
+        media: {
+          ...item.media,
+          createdAt: item.media.createdAt ?? null,
+        },
+      })),
+      ...favoritesActivity.map(item => ({
+        ...item,
+        createdAt: item.createdAt ?? new Date(),
+        media: {
+          ...item.media,
+          createdAt: item.media.createdAt ?? null,
+        },
+      })),
+      ...listActivity.map(item => ({
+        ...item,
+        createdAt: item.createdAt ?? new Date(),
+        media: {
+          ...item.media,
+          createdAt: item.media.createdAt ?? null,
+        },
+        list: item.list ? {
+          ...item.list,
+          createdAt: item.list.createdAt ?? new Date(),
+          isPublic: item.list.isPublic ?? false,
+        } : null,
+      })),
+    ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 10);
+
+    return allActivity;
   }
 }
 

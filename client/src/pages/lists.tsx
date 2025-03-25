@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/auth/AuthContext";
 import { 
   Card, 
   CardContent, 
@@ -33,10 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
-import { PlusCircle, ListPlus, Globe, Lock } from "lucide-react";
+import { PlusCircle, ListPlus, Globe, Lock, Star, Film, Tv } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import ListItem from "@/components/media/ListItem";
 
 const formSchema = z.object({
   name: z.string().min(1, "List name is required"),
@@ -45,8 +47,7 @@ const formSchema = z.object({
 });
 
 export default function Lists() {
-  // Mock user ID - this would come from auth context in a real app
-  const userId = 1;
+  const { currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   
@@ -59,37 +60,57 @@ export default function Lists() {
     },
   });
 
-  // Fetch user's lists
+  // Fetch user's lists with items
   const { data: lists, isLoading } = useQuery({
-    queryKey: [`/api/users/${userId}/lists`],
+    queryKey: [`/api/users/${currentUser?.uid}/lists`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/lists`);
-        return await response.json();
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/lists`);
+        const lists = await response.json();
+        console.log("Fetched lists:", lists);
+        return lists;
       } catch (error) {
-        // Return empty array if user not authenticated yet
+        console.error("Error fetching lists:", error);
         return [];
       }
     },
+    enabled: !!currentUser,
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      await apiRequest("POST", "/api/lists", {
-        ...values,
-        userId,
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "You must be signed in to create a list.",
+        variant: "destructive",
       });
+      return;
+    }
+
+    try {
+      console.log("Creating list with data:", {
+        ...values,
+        userId: currentUser.uid,
+      });
+      
+      // Create the list using the Firebase user ID
+      const response = await apiRequest("POST", "/api/lists", {
+        ...values,
+        userId: currentUser.uid, // Use the Firebase user ID directly
+      });
+      
+      console.log("List creation response:", await response.clone().json());
       
       toast({
         title: "List created",
         description: "Your new list has been created successfully.",
       });
       
-      // Invalidate lists query to refetch
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/lists`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUser.uid}/lists`] });
       setOpen(false);
       form.reset();
     } catch (error) {
+      console.error("Error creating list:", error);
       toast({
         title: "Error",
         description: "Failed to create list. Please try again.",
@@ -98,17 +119,14 @@ export default function Lists() {
     }
   };
 
-  // Mock data for the empty state
-  const isAuthenticated = false; // This would come from auth context
-  
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return (
       <div className="container flex flex-col items-center justify-center px-4 py-16 text-center md:px-6">
         <h1 className="mb-4 text-3xl font-bold">Your Lists</h1>
         <p className="mb-8 max-w-md text-muted-foreground">
           Sign in to create and manage your custom movie and TV show lists.
         </p>
-        <Button>Sign In</Button>
+        <Button onClick={() => setOpen(true)}>Sign In</Button>
       </div>
     );
   }
@@ -173,9 +191,12 @@ export default function Lists() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Add a description for your list" {...field} />
+                        <Textarea 
+                          placeholder="Add a description for your list..."
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -211,48 +232,42 @@ export default function Lists() {
           </DialogContent>
         </Dialog>
       </div>
-      
-      {lists?.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-          <ListPlus className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">No Lists Yet</h2>
-          <p className="mb-4 max-w-md text-muted-foreground">
-            Create your first list to start organizing your favorite movies and TV shows.
-          </p>
-          <Button onClick={() => setOpen(true)}>Create List</Button>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {lists?.map((list: any) => (
-            <Card key={list.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {lists?.map((list: any) => (
+          <Link key={list.id} href={`/lists/${list.id}`}>
+            <Card className="cursor-pointer transition-shadow hover:shadow-lg">
+              <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="line-clamp-1">{list.name}</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <ListPlus className="h-5 w-5" />
+                    {list.name}
+                  </CardTitle>
                   {list.isPublic ? (
                     <Globe className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Lock className="h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
-                <CardDescription className="line-clamp-2">
-                  {list.description || "No description"}
-                </CardDescription>
+                <CardDescription>{list.description || "No description"}</CardDescription>
               </CardHeader>
-              <CardContent className="pb-2">
-                <p className="text-sm text-muted-foreground">
-                  {/* This would come from the API in a real app */}
-                  0 items
-                </p>
+              
+              <CardContent>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Film className="h-4 w-4" />
+                    <span>0 Movies</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Tv className="h-4 w-4" />
+                    <span>0 Shows</span>
+                  </div>
+                </div>
               </CardContent>
-              <CardFooter>
-                <Link href={`/lists/${list.id}`}>
-                  <Button variant="outline" className="w-full">View List</Button>
-                </Link>
-              </CardFooter>
             </Card>
-          ))}
-        </div>
-      )}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

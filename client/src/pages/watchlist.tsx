@@ -5,25 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaGrid from "@/components/media/MediaGrid";
 import { TMDBMovie, TMDBTVShow } from "@shared/schema";
+import { useAuth } from "@/components/auth/AuthContext";
 
 export default function Watchlist() {
-  // Mock user ID - this would come from auth context in a real app
-  const userId = 1;
-  
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"all" | "movies" | "tv">("all");
 
   // Fetch watchlist
   const { data: watchlist, isLoading } = useQuery({
-    queryKey: [`/api/users/${userId}/watchlist`],
+    queryKey: [`/api/users/${currentUser?.uid}/watchlist`],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/users/${userId}/watchlist`);
+        const response = await apiRequest("GET", `/api/users/${currentUser?.uid}/watchlist`);
         return await response.json();
       } catch (error) {
-        // Return empty array if user not authenticated yet
         return [];
       }
     },
+    enabled: !!currentUser,
   });
 
   // Filter by media type
@@ -32,17 +31,14 @@ export default function Watchlist() {
     return activeTab === "movies" ? item.media.type === "movie" : item.media.type === "tv";
   });
 
-  // Mock data for the empty state
-  const isAuthenticated = false; // This would come from auth context
-  
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return (
       <div className="container flex flex-col items-center justify-center px-4 py-16 text-center md:px-6">
         <h1 className="mb-4 text-3xl font-bold">Your Watchlist</h1>
         <p className="mb-8 max-w-md text-muted-foreground">
           Sign in to keep track of movies and shows you want to watch.
         </p>
-        <Button>Sign In</Button>
+        <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
       </div>
     );
   }
