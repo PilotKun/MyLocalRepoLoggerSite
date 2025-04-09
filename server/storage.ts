@@ -42,7 +42,7 @@ export interface IStorage {
   
   // Lists operations
   getListsByUserId(userId: string): Promise<List[]>;
-  getListById(id: number): Promise<(List & { items: (ListItem & { media: MediaItem })[] }) | undefined>;
+  getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; /* userRating?: number | null */ })[] }) | undefined>;
   createList(list: InsertList): Promise<List>;
   updateList(id: number, updates: Partial<InsertList>): Promise<List | undefined>;
   deleteList(id: number): Promise<void>;
@@ -355,9 +355,23 @@ export class PostgresStorage implements IStorage {
     }
   }
 
-  async getListById(id: number): Promise<(List & { items: (ListItem & { media: MediaItem })[] }) | undefined> {
+  async getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; /* userRating?: number | null */ })[] }) | undefined> {
     try {
-      console.log("Fetching list by ID:", id);
+      console.log(`Fetching list by ID: ${id} for user: ${userId || 'anonymous'}`);
+      
+      // First check if the list exists
+      const listExists = await db
+        .select({ id: lists.id })
+        .from(lists)
+        .where(eq(lists.id, id));
+
+      if (!listExists.length) {
+        console.log(`List with ID ${id} does not exist in the database`);
+        return undefined;
+      }
+
+      console.log(`List ${id} found, fetching details and items...`);
+      
       const result = await db.select({
         id: lists.id,
         userId: lists.userId,
@@ -365,50 +379,55 @@ export class PostgresStorage implements IStorage {
         description: lists.description,
         isPublic: lists.isPublic,
         createdAt: lists.createdAt,
-        items: sql<(ListItem & { media: MediaItem })[]>`
+        items: sql<(ListItem & { media: MediaItem })[]>` 
           COALESCE(
-            ARRAY_AGG(
-              json_build_object(
-                'id', ${listItems.id},
-                'listId', ${listItems.listId},
-                'mediaId', ${listItems.mediaId},
-                'createdAt', ${listItems.createdAt},
-                'media', json_build_object(
-                  'id', ${mediaItems.id},
-                  'tmdbId', ${mediaItems.tmdbId},
-                  'type', ${mediaItems.type},
-                  'title', ${mediaItems.title},
-                  'posterPath', ${mediaItems.posterPath},
-                  'backdropPath', ${mediaItems.backdropPath},
-                  'overview', ${mediaItems.overview},
-                  'releaseDate', ${mediaItems.releaseDate},
-                  'voteAverage', ${mediaItems.voteAverage},
-                  'episodeCount', ${mediaItems.episodeCount},
-                  'createdAt', ${mediaItems.createdAt}
+            (
+              SELECT ARRAY_AGG(
+                json_build_object(
+                  'id', li.id,
+                  'listId', li.list_id,
+                  'mediaId', li.media_id,
+                  'status', li.status,
+                  'seasonsWatched', li.seasons_watched,
+                  'createdAt', li.created_at,
+                  'media', json_build_object(
+                    'id', mi.id,
+                    'tmdbId', mi.tmdb_id,
+                    'type', mi.type,
+                    'title', mi.title,
+                    'posterPath', mi.poster_path,
+                    'backdropPath', mi.backdrop_path,
+                    'overview', mi.overview,
+                    'releaseDate', mi.release_date,
+                    'voteAverage', mi.vote_average,
+                    'episodeCount', mi.episode_count,
+                    'createdAt', mi.created_at
+                  )
                 )
               )
-            ) FILTER (WHERE ${listItems.id} IS NOT NULL),
+              FROM ${listItems} li
+              LEFT JOIN ${mediaItems} mi ON li.media_id = mi.id
+              WHERE li.list_id = ${id}
+            ),
             ARRAY[]::json[]
           )
         `
       })
       .from(lists)
-      .leftJoin(listItems, eq(lists.id, listItems.listId))
-      .leftJoin(mediaItems, eq(listItems.mediaId, mediaItems.id))
       .where(eq(lists.id, id))
       .groupBy(lists.id);
 
       if (!result[0]) {
-        console.log("List not found:", id);
+        console.log(`Failed to fetch list details for ID ${id}`);
         return undefined;
       }
 
-      console.log("Found list:", result[0]);
-      return {
+      console.log(`Successfully fetched list ${id} with ${(result[0].items || []).length} items`);
+      const listData = {
         ...result[0],
         createdAt: result[0].createdAt ?? new Date(),
         isPublic: result[0].isPublic ?? false,
-        items: result[0].items.map(item => ({
+        items: (result[0].items || []).map(item => ({
           ...item,
           createdAt: item.createdAt ?? new Date(),
           media: {
@@ -417,8 +436,9 @@ export class PostgresStorage implements IStorage {
           }
         }))
       };
+      return listData;
     } catch (error) {
-      console.error("Error fetching list:", error);
+      console.error(`Error fetching list ${id}:`, error);
       throw error;
     }
   }
@@ -487,9 +507,48 @@ export class PostgresStorage implements IStorage {
   // List items operations
   async addToList(item: InsertListItem): Promise<ListItem> {
     try {
-      console.log("Adding item to list:", item);
-      const result = await db.insert(listItems).values(item).returning();
-      console.log("Item added to list:", result[0]);
+      console.log("Adding item to list with payload:", JSON.stringify(item, null, 2));
+      
+      // Validate input data
+      if (!item.listId || !item.mediaId) {
+        throw new Error("List ID and Media ID are required");
+      }
+      
+      // Validate status
+      const validStatuses = ["watched", "watchlist", "watching", "on hold", "dropped"];
+      const status = item.status || "watched";
+      if (!validStatuses.includes(status)) {
+        console.warn(`Invalid status provided: ${status}. Proceeding with insertion.`); 
+      }
+      
+      // Check if the item already exists in the list
+      const existingItem = await db.select()
+        .from(listItems)
+        .where(
+          and(
+            eq(listItems.listId, item.listId),
+            eq(listItems.mediaId, item.mediaId)
+          )
+        );
+      
+      if (existingItem.length > 0) {
+        throw new Error("Item already exists in this list");
+      }
+      
+      // Prepare data for insert
+      const insertData = {
+        listId: item.listId,
+        mediaId: item.mediaId,
+        status: status,
+        seasonsWatched: item.seasonsWatched || 0,
+        createdAt: new Date()
+      };
+      
+      console.log("Final insert data:", insertData);
+      
+      // Insert the new item
+      const result = await db.insert(listItems).values(insertData).returning();
+      console.log("Item added to list successfully:", result[0]);
       return result[0];
     } catch (error) {
       console.error("Error adding item to list:", error);

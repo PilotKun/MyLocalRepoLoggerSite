@@ -251,11 +251,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   router.get("/api/lists/:id", async (req, res) => {
     try {
       const listId = parseInt(req.params.id);
+      const userId = req.query.userId as string | undefined;
+
       if (isNaN(listId)) {
         return res.status(400).json({ message: "Invalid list ID" });
       }
 
-      const list = await storage.getListById(listId);
+      const list = await storage.getListById(listId, userId);
       if (!list) {
         return res.status(404).json({ message: "List not found" });
       }
@@ -325,12 +327,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   router.post("/api/list-items", async (req, res) => {
     try {
       const listItemData = insertListItemSchema.parse(req.body);
-      console.log("Adding item to list:", listItemData);
       const newListItem = await storage.addToList(listItemData);
-      console.log("Item added to list:", newListItem);
       res.status(201).json(newListItem);
     } catch (error) {
-      console.error("Error adding item to list:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid list item data", errors: error.errors });
       }
@@ -338,15 +337,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete list item endpoint
   router.delete("/api/lists/:listId/items/:mediaId", async (req, res) => {
     try {
       const listId = parseInt(req.params.listId);
       const mediaId = parseInt(req.params.mediaId);
       
       if (isNaN(listId) || isNaN(mediaId)) {
-        return res.status(400).json({ message: "Invalid ID" });
+        return res.status(400).json({ message: "Invalid list ID or media ID" });
       }
 
+      console.log("Removing item from list:", { listId, mediaId });
       await storage.removeFromList(listId, mediaId);
       res.status(204).end();
     } catch (error) {

@@ -34,12 +34,12 @@ import ListItem from "@/components/media/ListItem";
 import { searchMedia } from "@/lib/tmdb";
 
 // Status options for media items
-type WatchStatus = "watched" | "watchlist" | "watching";
+type WatchStatus = "watched" | "watchlist" | "watching" | "on hold" | "dropped";
 
 interface MediaSearchResult {
   id: number;
   title: string;
-  poster_path: string;
+  poster_path: string | null;
   media_type: "movie" | "tv";
   release_date?: string;
   first_air_date?: string;
@@ -69,10 +69,11 @@ export default function ListDetail() {
 
   // Fetch list details
   const { data: list, isLoading } = useQuery({
-    queryKey: [`/api/lists/${listId}`],
+    queryKey: [`/api/lists/${listId}`, currentUser?.uid],
     queryFn: async () => {
+      if (!currentUser) return null;
       try {
-        const response = await apiRequest("GET", `/api/lists/${listId}`);
+        const response = await apiRequest("GET", `/api/lists/${listId}?userId=${currentUser.uid}`);
         const list = await response.json();
         return list;
       } catch (error) {
@@ -80,6 +81,7 @@ export default function ListDetail() {
         return null;
       }
     },
+    enabled: !!currentUser,
   });
 
   const handleDeleteList = async () => {
@@ -111,7 +113,7 @@ export default function ListDetail() {
     setSearchLoading(true);
     try {
       const results = await searchMedia(searchQuery);
-      setSearchResults(results.slice(0, 5)); // Limit to first 5 results
+      setSearchResults(results.slice(0, 5) as MediaSearchResult[]);
     } catch (error) {
       console.error("Error searching media:", error);
       toast({
@@ -188,6 +190,12 @@ export default function ListDetail() {
         throw new Error("Invalid list ID");
       }
       
+      // Validate status
+      const validStatuses = ["watched", "watchlist", "watching", "on hold", "dropped"];
+      if (!validStatuses.includes(status)) {
+        throw new Error("Invalid status value");
+      }
+      
       const addToListPayload = {
         listId,
         mediaId,
@@ -213,17 +221,19 @@ export default function ListDetail() {
       });
       
       // Refresh list data
-      queryClient.invalidateQueries({ queryKey: [`/api/lists/${listId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/lists/${listId}`, currentUser?.uid] });
       
       // Close dialog and reset state
       setQuickAddOpen(false);
       setSelectedMedia(null);
+      setStatus("watched"); // Reset status to default
+      setSeasonsWatched(0); // Reset seasons watched
       
     } catch (error) {
       console.error("Error adding to list:", error);
       toast({
         title: "Error",
-        description: "Failed to add item to list. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to add item to list. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -318,20 +328,29 @@ export default function ListDetail() {
           </div>
         ) : (
           list.items.map((item: any) => (
-            <Link key={item.id} href={`/media/${item.media.id}?type=${item.media.type}`}>
-              <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardContent className="p-4">
-                  <ListItem item={{
+            <Card key={item.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardContent className="p-4">
+                <ListItem 
+                  item={{
                     id: item.id,
-                    mediaId: item.mediaId,
+                    listId: list.id,
+                    mediaId: item.media.id,
+                    tmdbId: item.media.tmdbId,
                     title: item.media.title,
                     type: item.media.type,
-                    voteAverage: item.media.voteAverage,
+                    voteAverage: item.media.voteAverage || 0,
                     seasonsWatched: item.seasonsWatched,
-                  }} />
-                </CardContent>
-              </Card>
-            </Link>
+                    status: item.status,
+                    createdAt: item.createdAt,
+                    posterPath: item.media.posterPath,
+                    userRating: item.userRating
+                  }}
+                  onRatingChange={() => {
+                    queryClient.invalidateQueries({ queryKey: [`/api/lists/${listId}`, currentUser?.uid] });
+                  }}
+                />
+              </CardContent>
+            </Card>
           ))
         )}
       </div>
@@ -477,8 +496,10 @@ export default function ListDetail() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="watched">Watched</SelectItem>
-                        <SelectItem value="watchlist">Want to Watch</SelectItem>
                         <SelectItem value="watching">Currently Watching</SelectItem>
+                        <SelectItem value="watchlist">Plan to Watch</SelectItem>
+                        <SelectItem value="on hold">On Hold</SelectItem>
+                        <SelectItem value="dropped">Dropped</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

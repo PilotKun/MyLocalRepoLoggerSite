@@ -94,7 +94,7 @@ export const listItems = pgTable("list_items", {
   listId: integer("list_id").notNull(),
   mediaId: integer("media_id").notNull(),
   status: varchar("status", { length: 50 }).default("watched"),
-  seasonsWatched: integer("seasons_watched"), // Tracks seasons watched for TV shows
+  seasonsWatched: integer("seasons_watched"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

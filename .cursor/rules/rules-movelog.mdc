@@ -4,7 +4,7 @@ globs:
 alwaysApply: true
 ---
 
-# Create a file called log and everytime u chnage smt give it a log it there and do it cronologically.
+# log everytime u chnage smt give it a log it there and do it cronologically.
 # Everytime u create a new function, test it to see if it works
 # Always make a MVP first see if it works and then complete it
 # Anytime you are making a new function which can have its own page do it
