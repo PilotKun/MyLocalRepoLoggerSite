@@ -384,7 +384,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mediaId = parseInt(req.params.mediaId);
       const { userId, rating } = req.body;
       
+      console.log(`Rating request received - MediaID: ${mediaId}, UserID: ${userId}, Rating: ${rating}`);
+      
       if (isNaN(mediaId) || !userId || typeof rating !== 'number' || rating < 0 || rating > 10) {
+        console.log('Invalid rating data:', { mediaId, userId, rating });
         return res.status(400).json({ message: "Invalid rating data" });
       }
 
@@ -397,14 +400,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if already marked as watched
       const isWatched = await storage.isWatched(userId, mediaId);
+      console.log(`Media ${mediaId} watched status for user ${userId}:`, isWatched);
+      
       if (isWatched) {
+        console.log(`Updating existing rating for media ${mediaId}`);
         // Update the existing entry
         await storage.removeFromWatched(userId, mediaId);
       }
       
+      console.log(`Adding/updating rating for media ${mediaId}:`, watchedData);
       const newWatchedItem = await storage.addToWatched(watchedData);
+      console.log('Rating saved successfully:', newWatchedItem);
+      
       res.status(201).json(newWatchedItem);
     } catch (error) {
+      console.error('Error in rating endpoint:', error);
       res.status(500).json({ message: "Failed to rate media item" });
     }
   });

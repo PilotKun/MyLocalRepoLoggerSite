@@ -346,7 +346,11 @@ export default function ListDetail() {
                     userRating: item.userRating
                   }}
                   onRatingChange={() => {
-                    queryClient.invalidateQueries({ queryKey: [`/api/lists/${listId}`, currentUser?.uid] });
+                    console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
+                    queryClient.invalidateQueries({ 
+                      queryKey: [`/api/lists/${listId}`, currentUser?.uid],
+                      refetchType: 'active'
+                    });
                   }}
                 />
               </CardContent>

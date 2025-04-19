@@ -40,18 +40,33 @@ export default function ListItem({ item, onRatingChange }: ListItemProps) {
     }
 
     try {
-      await apiRequest("POST", `/api/media/${item.mediaId}/rate`, {
+      console.log(`Submitting rating: MediaID=${item.mediaId}, UserID=${currentUser.uid}, Rating=${value}`);
+      
+      const response = await apiRequest("POST", `/api/media/${item.mediaId}/rate`, {
         userId: currentUser.uid,
         rating: value,
       });
 
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      console.log('Rating submitted successfully');
+      
       toast({
         title: "Rating updated",
         description: "Your rating has been saved successfully.",
       });
 
+      // Invalidate the specific media's rating query
+      // The list query invalidation is handled by the onRatingChange callback
+      queryClient.invalidateQueries({ queryKey: [`/api/media/${item.mediaId}`] });
+
+      // Call the onRatingChange callback if provided
       onRatingChange?.();
     } catch (error) {
+      console.error('Error submitting rating:', error);
       toast({
         title: "Error",
         description: "Failed to update rating. Please try again.",

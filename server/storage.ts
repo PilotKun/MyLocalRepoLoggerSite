@@ -42,7 +42,7 @@ export interface IStorage {
   
   // Lists operations
   getListsByUserId(userId: string): Promise<List[]>;
-  getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; /* userRating?: number | null */ })[] }) | undefined>;
+  getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; userRating?: number | null })[] }) | undefined>;
   createList(list: InsertList): Promise<List>;
   updateList(id: number, updates: Partial<InsertList>): Promise<List | undefined>;
   deleteList(id: number): Promise<void>;
@@ -355,7 +355,7 @@ export class PostgresStorage implements IStorage {
     }
   }
 
-  async getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; /* userRating?: number | null */ })[] }) | undefined> {
+  async getListById(id: number, userId?: string): Promise<(List & { items: (ListItem & { media: MediaItem; userRating?: number | null })[] }) | undefined> {
     try {
       console.log(`Fetching list by ID: ${id} for user: ${userId || 'anonymous'}`);
       
@@ -370,7 +370,7 @@ export class PostgresStorage implements IStorage {
         return undefined;
       }
 
-      console.log(`List ${id} found, fetching details and items...`);
+      console.log(`List ${id} found, fetching details and items using userId: ${userId}`);
       
       const result = await db.select({
         id: lists.id,
@@ -379,7 +379,7 @@ export class PostgresStorage implements IStorage {
         description: lists.description,
         isPublic: lists.isPublic,
         createdAt: lists.createdAt,
-        items: sql<(ListItem & { media: MediaItem })[]>` 
+        items: sql<(ListItem & { media: MediaItem; userRating?: number | null })[]>` 
           COALESCE(
             (
               SELECT ARRAY_AGG(
@@ -402,11 +402,13 @@ export class PostgresStorage implements IStorage {
                     'voteAverage', mi.vote_average,
                     'episodeCount', mi.episode_count,
                     'createdAt', mi.created_at
-                  )
+                  ),
+                  'userRating', wi.rating
                 )
               )
               FROM ${listItems} li
               LEFT JOIN ${mediaItems} mi ON li.media_id = mi.id
+              ${userId ? sql`LEFT JOIN ${watchedItems} wi ON li.media_id = wi.media_id AND wi.user_id = ${userId}` : sql`LEFT JOIN ${watchedItems} wi ON false`}
               WHERE li.list_id = ${id}
             ),
             ARRAY[]::json[]
@@ -417,12 +419,19 @@ export class PostgresStorage implements IStorage {
       .where(eq(lists.id, id))
       .groupBy(lists.id);
 
+      console.log(`Raw database result for list ${id}:`, JSON.stringify(result, null, 2));
+
       if (!result[0]) {
         console.log(`Failed to fetch list details for ID ${id}`);
         return undefined;
       }
 
-      console.log(`Successfully fetched list ${id} with ${(result[0].items || []).length} items`);
+      console.log(`Processing raw items for list ${id}:`, JSON.stringify(result[0].items, null, 2));
+      console.log('Items with ratings before mapping:', result[0].items.map(item => ({
+        title: item.media.title,
+        userRating: item.userRating
+      })));
+      
       const listData = {
         ...result[0],
         createdAt: result[0].createdAt ?? new Date(),
