@@ -1,4 +1,4 @@
-import { Film, Tv, Star, Calendar, Trash2, ExternalLink } from "lucide-react";
+import { Film, Tv, Star, Calendar, Trash2, ExternalLink, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -23,9 +23,10 @@ interface ListItemProps {
     posterPath?: string;
   };
   onRatingChange?: () => void;
+  onEdit?: (item: ListItemProps['item']) => void;
 }
 
-export default function ListItem({ item, onRatingChange }: ListItemProps) {
+export default function ListItem({ item, onRatingChange, onEdit }: ListItemProps) {
   const { toast } = useToast();
   const { currentUser } = useAuth();
 
@@ -219,6 +220,19 @@ export default function ListItem({ item, onRatingChange }: ListItemProps) {
           <div className="flex items-center gap-2">
             {getStatusBadge(item.status)}
             {getSeasonsWatchedBadge()}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Edit icon clicked in ListItem for:", item.title);
+                onEdit?.(item);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

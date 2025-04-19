@@ -32,6 +32,11 @@ import { ListPlus, Globe, Lock, Trash2, ArrowLeft, Plus, Film, Tv, Search, X } f
 import { Link } from "wouter";
 import ListItem from "@/components/media/ListItem";
 import { searchMedia } from "@/lib/tmdb";
+import EditItemDialog from "@/components/media/EditItemDialog";
+
+// Define the type for a list item based on ListItemProps
+// This helps ensure consistency
+type ListItemData = React.ComponentProps<typeof ListItem>['item'];
 
 // Status options for media items
 type WatchStatus = "watched" | "watchlist" | "watching" | "on hold" | "dropped";
@@ -55,10 +60,12 @@ export default function ListDetail() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null);
-  const [status, setStatus] = useState<WatchStatus>("watched");
+  const [status, setStatus] = useState<WatchStatus>("watchlist");
   const [seasonsWatched, setSeasonsWatched] = useState<number>(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ListItemData | null>(null);
 
   if (!match) {
     navigate("/not-found");
@@ -131,7 +138,7 @@ export default function ListDetail() {
     setSearchResults([]);
     
     // Reset values
-    setStatus("watched");
+    setStatus("watchlist");
     setSeasonsWatched(0);
   };
 
@@ -226,7 +233,7 @@ export default function ListDetail() {
       // Close dialog and reset state
       setQuickAddOpen(false);
       setSelectedMedia(null);
-      setStatus("watched"); // Reset status to default
+      setStatus("watchlist"); // Reset status to default
       setSeasonsWatched(0); // Reset seasons watched
       
     } catch (error) {
@@ -239,6 +246,13 @@ export default function ListDetail() {
     } finally {
       setAddLoading(false);
     }
+  };
+
+  // Function to open the edit dialog
+  const handleEditClick = (item: ListItemData) => {
+    console.log("Editing item:", item);
+    setEditingItem(item);
+    setIsEditDialogOpen(true);
   };
 
   if (isLoading) {
@@ -327,37 +341,50 @@ export default function ListDetail() {
             <p className="text-sm text-muted-foreground">Add movies or TV shows to your list!</p>
           </div>
         ) : (
-          list.items.map((item: any) => (
-            <Card key={item.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardContent className="p-4">
-                <ListItem 
-                  item={{
-                    id: item.id,
-                    listId: list.id,
-                    mediaId: item.media.id,
-                    tmdbId: item.media.tmdbId,
-                    title: item.media.title,
-                    type: item.media.type,
-                    voteAverage: item.media.voteAverage || 0,
-                    seasonsWatched: item.seasonsWatched,
-                    status: item.status,
-                    createdAt: item.createdAt,
-                    posterPath: item.media.posterPath,
-                    userRating: item.userRating
-                  }}
-                  onRatingChange={() => {
-                    console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
-                    queryClient.invalidateQueries({ 
-                      queryKey: [`/api/lists/${listId}`, currentUser?.uid],
-                      refetchType: 'active'
-                    });
-                  }}
-                />
-              </CardContent>
-            </Card>
-          ))
+          list.items.map((itemData: any) => {
+            // Map the fetched data to the expected ListItemData structure
+            const mappedItem: ListItemData = {
+              id: itemData.id, // This is the list_item ID
+              listId: list.id,
+              mediaId: itemData.media.id,
+              tmdbId: itemData.media.tmdbId,
+              title: itemData.media.title,
+              type: itemData.media.type,
+              voteAverage: itemData.media.voteAverage || 0,
+              seasonsWatched: itemData.seasonsWatched,
+              status: itemData.status,
+              createdAt: itemData.createdAt,
+              posterPath: itemData.media.posterPath,
+              userRating: itemData.userRating
+            };
+            return (
+              <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardContent className="p-0"> {/* Remove padding here if ListItem has its own */}
+                  <ListItem 
+                    item={mappedItem}
+                    onEdit={handleEditClick} // Pass the handler
+                    onRatingChange={() => {
+                      console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
+                      queryClient.invalidateQueries({ 
+                        queryKey: [`/api/lists/${listId}`, currentUser?.uid],
+                        refetchType: 'active'
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
+      
+      {/* Edit Item Dialog */}
+      <EditItemDialog 
+        item={editingItem} 
+        open={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen} 
+        // Optionally add onSaved if needed later, e.g., for specific refresh logic
+      />
       
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -493,7 +520,7 @@ export default function ListDetail() {
                     <Select 
                       value={status} 
                       onValueChange={(value: WatchStatus) => setStatus(value as WatchStatus)}
-                      defaultValue="watched"
+                      defaultValue="watchlist"
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select status" />

@@ -50,6 +50,7 @@ export interface IStorage {
   // List items operations
   addToList(item: InsertListItem): Promise<ListItem>;
   removeFromList(listId: number, mediaId: number): Promise<void>;
+  updateListItem(id: number, updates: Partial<Pick<InsertListItem, 'status' | 'seasonsWatched'>>): Promise<ListItem | undefined>;
   
   // Stats operations
   getUserStats(userId: string): Promise<{
@@ -577,6 +578,28 @@ export class PostgresStorage implements IStorage {
       console.log("Item removed from list:", listId, mediaId);
     } catch (error) {
       console.error("Error removing item from list:", error);
+      throw error;
+    }
+  }
+
+  async updateListItem(id: number, updates: Partial<Pick<InsertListItem, 'status' | 'seasonsWatched'>>): Promise<ListItem | undefined> {
+    try {
+      console.log(`Updating list item ${id} with:`, updates);
+      const result = await db
+        .update(listItems)
+        .set(updates)
+        .where(eq(listItems.id, id))
+        .returning();
+
+      if (!result[0]) {
+        console.log(`List item with ID ${id} not found for update.`);
+        return undefined;
+      }
+
+      console.log("List item updated successfully:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error(`Error updating list item ${id}:`, error);
       throw error;
     }
   }
