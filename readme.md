@@ -33,26 +33,16 @@ CineLog is a modern web application for tracking, discovering, and sharing your 
 - 🔄 User profiles with statistics (movies watched, TV episodes, etc.)
 - 🔄 Activity tracking for media interactions
 - 🔄 Watchlist functionality to save content for later
-- 🔄 "Watched" list to track completed media
+- ✅ "Watched" list to track completed media
 - 🔄 Favorites list for your top picks
 
 ### Roadmap
-- 🔄 Social features (follow other users, share lists)
-- 🔄 Custom user lists beyond the default categories
+- ✅ Custom user lists beyond the default categories
 - 🔄 Advanced filtering and sorting options
-- 🔄 Rating system with half-star increments
-- 🔄 Review writing capabilities
+- ✅ Rating system with 1 - 10 points 
 
 ### Medium-term Plans
 - 🔄 Personal media recommendations based on watch history
 - 🔄 Episode tracking for TV shows
 - 🔄 Calendar view for upcoming releases
 - 🔄 Watch time statistics and visualizations
-- 🔄 Integration with streaming services to show availability
-
-### Long-term Vision
-- 🔄 Mobile apps for iOS and Android
-- 🔄 Offline capabilities with local-first data approach
-- 🔄 Public API for third-party integrations
-- 🔄 Gamification features (achievements, streaks)
-- 🔄 Community discussion forums for individual titles
