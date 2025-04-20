@@ -5,13 +5,13 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
-.env.local
+# .env.local
 generated-icon.png
 Screenshot-2025-03-22 204101.png
 
 
-# Firebase configuration file with sensitive keys
-client/src/lib/firebase.ts
+# # Firebase configuration file with sensitive keys
+# client/src/lib/firebase.ts
 
 # Replit files
 .replit

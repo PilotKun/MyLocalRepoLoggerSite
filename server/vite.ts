@@ -71,19 +71,14 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Correct path to the client build output directory
-  // Assumes Vite builds into 'dist/client' relative to project root
-  const clientDistPath = path.resolve(__dirname, "..", "client"); 
+  // Path should match vite.config.ts build.outDir relative to server output
+  const clientDistPath = path.resolve(__dirname, "public"); 
 
   log(`Serving static files from: ${clientDistPath}`);
 
   if (!fs.existsSync(clientDistPath)) {
-    log(`Error: Build directory not found at ${clientDistPath}`);
-    // Optionally, attempt a fallback or throw a clearer error
-    // For now, let it potentially fail later if index.html isn't found
-    // throw new Error(
-    //   `Could not find the client build directory: ${clientDistPath}, make sure the client build completed successfully within the 'dist' folder`,
-    // );
+    log(`Error: Build directory not found at ${clientDistPath}. Make sure client build ran successfully.`);
+    // Handle missing directory - maybe throw, or let the fallback handle it
   }
 
   // Serve static files (JS, CSS, images, etc.) from the client build directory
