@@ -39,7 +39,10 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      ...serverOptions,
+      allowedHosts: ['localhost', '127.0.0.1'] // Fix type error by specifying allowed hosts
+    },
     appType: "custom",
   });
 
