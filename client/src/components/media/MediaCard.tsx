@@ -38,10 +38,12 @@ export default function MediaCard({
             height={height || 300}
             loading="lazy"
           />
-          {/* Rating Badge */}
-          <div className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-semibold text-white">
-            {rating}
-          </div>
+          {/* Rating Badge - Conditionally render only if vote_average > 0 */}
+          {media.vote_average && media.vote_average > 0 && (
+            <div className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-semibold text-white">
+              {media.vote_average.toFixed(1)} 
+            </div>
+          )}
         </div>
         
         {/* Title and Year */}

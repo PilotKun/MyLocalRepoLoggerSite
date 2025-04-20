@@ -8,11 +8,14 @@ import StatsCard from "@/components/user/StatsCard";
 import ActivityItem from "@/components/user/ActivityItem";
 import MediaGrid from "@/components/media/MediaGrid";
 import { useAuth } from "@/components/auth/AuthContext";
+import EditProfileModal from "@/components/user/EditProfileModal";
+import { formatRuntime } from "@/lib/utils";
 
 export default function Profile() {
-  const { currentUser } = useAuth();
+  const { currentUser, logOut } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "lists" | "stats">("overview");
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   // Fetch user profile
   const { data: user } = useQuery({
@@ -38,7 +41,7 @@ export default function Profile() {
       } catch (error) {
         return {
           moviesWatched: 0,
-          tvEpisodesWatched: 0,
+          tvShowsWatched: 0,
           averageRating: 0,
           totalWatchtime: 0
         };
@@ -103,39 +106,50 @@ export default function Profile() {
     );
   }
 
-  // Placeholder for empty user state
-  const userProfile = user || {
-    name: "CineLog User",
-    email: "user@example.com",
-    image: null
-  };
+  // Use the fetched user data, expecting displayName and photoURL
+  const userDisplayName = user?.displayName || "User";
+  const userPhotoURL = user?.photoURL;
+  const userEmail = user?.email || currentUser?.email || "user@example.com"; // Get email from fetched data or context
+
+  // Add console log to check the photo URL value
+  console.log("User Photo URL from fetched data:", userPhotoURL);
 
   return (
     <div className="container px-4 py-6 md:px-6 md:py-8">
       <div className="mb-8 flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-muted">
-          {userProfile.image ? (
+          {userPhotoURL ? (
             <img 
-              src={userProfile.image} 
-              alt={userProfile.name} 
+              src={userPhotoURL} 
+              alt={userDisplayName} 
               className="h-full w-full object-cover" 
             />
           ) : (
             <span className="text-4xl font-bold text-muted-foreground">
-              {userProfile.name && userProfile.name.length > 0 ? userProfile.name.charAt(0) : "U"}
+              {userDisplayName.charAt(0)}
             </span>
           )}
         </div>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{userProfile.name || "User"}</h1>
-          <p className="text-muted-foreground">{userProfile.email}</p>
+          <h1 className="text-3xl font-bold">{userDisplayName}</h1>
+          <p className="text-muted-foreground">{userEmail}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-1.5"
+            onClick={() => setShowEditProfileModal(true)}
+          >
             <Pencil className="h-4 w-4" />
             Edit Profile
           </Button>
-          <Button variant="ghost" size="sm" className="gap-1.5">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-1.5"
+            onClick={logOut}
+          >
             <Settings className="h-4 w-4" />
             Settings
           </Button>
@@ -160,8 +174,8 @@ export default function Profile() {
                   icon={FileText}
                 />
                 <StatsCard
-                  title="TV Episodes"
-                  value={stats?.tvEpisodesWatched || 0}
+                  title="TV/Series"
+                  value={stats?.tvShowsWatched || 0}
                   icon={CheckSquare}
                 />
                 <StatsCard
@@ -210,7 +224,11 @@ export default function Profile() {
           <div className="mt-8 space-y-6">
             <h2 className="text-2xl font-bold tracking-tight">Recently Watched</h2>
             <MediaGrid
-              items={watched?.slice(0, 6).map((item: any) => item.media) || []}
+              items={watched?.slice(0, 6).map((item: any) => ({
+                ...item.media,
+                // Ensure poster_path is mapped from potential posterPath
+                poster_path: item.media?.posterPath || item.media?.poster_path
+              })) || []}
               isLoading={watchedLoading}
               emptyMessage="You haven't watched anything yet."
             />
@@ -252,25 +270,25 @@ export default function Profile() {
               <StatsCard
                 title="Movies Watched"
                 value={stats?.moviesWatched || 0}
-                subtitle={`${Math.round((stats?.moviesWatched || 0) * 0.1)} this month`}
+                subtitle={`${stats?.moviesWatchedThisMonth || 0} this month`}
                 icon={FileText}
               />
               <StatsCard
-                title="TV Episodes"
-                value={stats?.tvEpisodesWatched || 0}
-                subtitle={`${Math.round((stats?.tvEpisodesWatched || 0) * 0.15)} this month`}
+                title="TV Shows Watched"
+                value={stats?.tvShowsWatched || 0}
+                subtitle={`${stats?.tvShowsWatchedThisMonth || 0} this month`}
                 icon={CheckSquare}
               />
               <StatsCard
                 title="Average Rating"
                 value={stats?.averageRating?.toFixed(1) || "0.0"}
-                subtitle={`From ${Math.round((stats?.moviesWatched || 0) + (stats?.tvEpisodesWatched || 0) * 0.5)} ratings`}
+                subtitle={`From ${Math.round((stats?.moviesWatched || 0) + (stats?.tvShowsWatched || 0))} ratings`}
                 icon={Star}
               />
               <StatsCard
-                title="Hours Watched"
-                value={stats?.totalWatchtime || 0}
-                subtitle={`${Math.round((stats?.totalWatchtime || 0) * 0.06)} this month`}
+                title="Total Watchtime"
+                value={formatRuntime(stats?.totalWatchtime || 0)}
+                subtitle="Hours & Minutes"
                 icon={Clock}
               />
             </div>
@@ -284,6 +302,8 @@ export default function Profile() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {showEditProfileModal && <EditProfileModal onClose={() => setShowEditProfileModal(false)} />}
     </div>
   );
 }

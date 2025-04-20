@@ -48,6 +48,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add PUT route for updating user profile
+  router.put("/api/users/:id", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      // Basic validation for incoming data (can be refined with Zod)
+      const { displayName, photoURL } = req.body;
+      if (typeof displayName !== 'string' || typeof photoURL !== 'string') {
+        return res.status(400).json({ message: "Invalid update data: displayName and photoURL must be strings." });
+      }
+
+      // Assume storage.updateUser exists and handles the update
+      const updatedUser = await storage.updateUser(userId, { 
+        displayName: displayName,
+        photoURL: photoURL 
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found or update failed" });
+      }
+
+      res.json(updatedUser); // Return updated user data
+    } catch (error) {
+      console.error(`Error updating user ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
   // Media endpoints
   router.get("/api/media/:id", async (req, res) => {
     const mediaId = parseInt(req.params.id);

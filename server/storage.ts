@@ -9,13 +9,14 @@ import {
   users, mediaItems, watchlistItems, watchedItems, favoriteItems, lists, listItems
 } from "@shared/schema";
 import { db } from './db';
-import { eq, and, sql, count, avg, desc } from 'drizzle-orm';
+import { eq, and, sql, count, avg, desc, gte, lte } from 'drizzle-orm';
 
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: { displayName?: string; photoURL?: string }): Promise<User | undefined>;
   
   // Media operations
   getMediaItem(id: number): Promise<MediaItem | undefined>;
@@ -55,9 +56,11 @@ export interface IStorage {
   // Stats operations
   getUserStats(userId: string): Promise<{
     moviesWatched: number;
-    tvEpisodesWatched: number;
+    tvShowsWatched: number;
     averageRating: number;
     totalWatchtime: number;
+    moviesWatchedThisMonth: number;
+    tvShowsWatchedThisMonth: number;
   }>;
 
   getRecentActivity(userId: string, limit?: number): Promise<ActivityItem[]>;
@@ -111,6 +114,20 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async updateUser(id: string, updates: { displayName?: string; photoURL?: string }): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({
+        ...(updates.displayName && { displayName: updates.displayName }),
+        ...(updates.photoURL && { photoURL: updates.photoURL }),
+        // Add other updatable fields here if needed
+      })
+      .where(eq(users.id, id))
+      .returning();
+    
+    return result[0]; // Return the updated user or undefined if not found/updated
+  }
+
   // Media operations
   async getMediaItem(id: number): Promise<MediaItem | undefined> {
     const result = await db.select().from(mediaItems).where(eq(mediaItems.id, id));
@@ -151,6 +168,7 @@ export class PostgresStorage implements IStorage {
           releaseDate: mediaItems.releaseDate,
           voteAverage: mediaItems.voteAverage,
           episodeCount: mediaItems.episodeCount,
+          runtime: mediaItems.runtime,
           createdAt: mediaItems.createdAt,
         },
       })
@@ -217,6 +235,7 @@ export class PostgresStorage implements IStorage {
           releaseDate: mediaItems.releaseDate,
           voteAverage: mediaItems.voteAverage,
           episodeCount: mediaItems.episodeCount,
+          runtime: mediaItems.runtime,
           createdAt: mediaItems.createdAt,
         },
       })
@@ -282,6 +301,7 @@ export class PostgresStorage implements IStorage {
           releaseDate: mediaItems.releaseDate,
           voteAverage: mediaItems.voteAverage,
           episodeCount: mediaItems.episodeCount,
+          runtime: mediaItems.runtime,
           createdAt: mediaItems.createdAt,
         },
       })
@@ -406,6 +426,7 @@ export class PostgresStorage implements IStorage {
                   ),
                   'userRating', wi.rating
                 )
+                ORDER BY mi.title ASC
               )
               FROM ${listItems} li
               LEFT JOIN ${mediaItems} mi ON li.media_id = mi.id
@@ -607,11 +628,34 @@ export class PostgresStorage implements IStorage {
   // Stats operations
   async getUserStats(userId: string): Promise<{
     moviesWatched: number;
-    tvEpisodesWatched: number;
+    tvShowsWatched: number;
     averageRating: number;
     totalWatchtime: number;
+    moviesWatchedThisMonth: number;
+    tvShowsWatchedThisMonth: number;
   }> {
-    const [moviesResult, tvResult, ratingResult] = await Promise.all([
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Helper function for monthly count query
+    const getMonthlyCount = async (type: 'movie' | 'tv') => {
+      return db
+        .select({ count: count() })
+        .from(watchedItems)
+        .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
+        .where(
+          and(
+            eq(watchedItems.userId, userId),
+            eq(mediaItems.type, type),
+            gte(watchedItems.createdAt, startOfMonth),
+            lte(watchedItems.createdAt, endOfMonth)
+          )
+        )
+        .then(res => res[0]?.count || 0);
+    };
+
+    const [moviesResult, tvResult, ratingResult, moviesThisMonth, tvThisMonth] = await Promise.all([
       db
         .select({ count: count() })
         .from(watchedItems)
@@ -630,14 +674,41 @@ export class PostgresStorage implements IStorage {
         .select({ average: avg(watchedItems.rating) })
         .from(watchedItems)
         .where(eq(watchedItems.userId, userId))
-        .then(res => res[0]?.average || 0)
+        .then(res => res[0]?.average || 0),
+        
+      getMonthlyCount('movie'),
+      getMonthlyCount('tv')
     ]);
+
+    // Calculate total watch time in minutes
+    const watchTimeResult = await db
+      .select({
+        type: mediaItems.type,
+        runtime: mediaItems.runtime,
+        episodes: mediaItems.episodeCount
+      })
+      .from(watchedItems)
+      .innerJoin(mediaItems, eq(watchedItems.mediaId, mediaItems.id))
+      .where(eq(watchedItems.userId, userId));
+      
+    let totalMinutes = 0;
+    watchTimeResult.forEach(item => {
+      if (item.runtime && item.runtime > 0) {
+        if (item.type === 'movie') {
+          totalMinutes += item.runtime;
+        } else if (item.type === 'tv' && item.episodes && item.episodes > 0) {
+          totalMinutes += item.runtime * item.episodes; 
+        }
+      }
+    });
 
     return {
       moviesWatched: Number(moviesResult),
-      tvEpisodesWatched: Number(tvResult),
+      tvShowsWatched: Number(tvResult),
       averageRating: Number(ratingResult),
-      totalWatchtime: 0, // TODO: Implement runtime calculation
+      totalWatchtime: totalMinutes,
+      moviesWatchedThisMonth: Number(moviesThisMonth),
+      tvShowsWatchedThisMonth: Number(tvThisMonth),
     };
   }
 

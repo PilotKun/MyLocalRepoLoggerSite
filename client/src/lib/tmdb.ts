@@ -87,18 +87,23 @@ export async function searchMedia(query: string) {
     
     // Filter to only movies and TV shows, and transform to our format
     return result.results
-      .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-      .map(item => ({
-        id: item.id,
-        title: item.media_type === 'movie' ? item.title : item.name,
-        poster_path: item.poster_path,
-        media_type: item.media_type,
-        release_date: item.media_type === 'movie' ? item.release_date : undefined,
-        first_air_date: item.media_type === 'tv' ? item.first_air_date : undefined
-      }));
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .map((item: any) => {
+        const isMovie = item.media_type === 'movie';
+        return {
+          id: item.id,
+          title: isMovie ? item.title : item.name,
+          poster_path: item.poster_path,
+          backdrop_path: item.backdrop_path,
+          media_type: item.media_type,
+          release_date: isMovie ? item.release_date : item.first_air_date,
+          overview: item.overview,
+          vote_average: item.vote_average,
+        };
+      });
   } catch (error) {
     console.error("Error searching media:", error);
-    return [];
+    throw error;
   }
 }
 

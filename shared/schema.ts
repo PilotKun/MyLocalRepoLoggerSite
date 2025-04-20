@@ -26,6 +26,7 @@ export const mediaItems = pgTable("media_items", {
   releaseDate: text("release_date"),
   voteAverage: integer("vote_average"),
   episodeCount: integer("episode_count"),
+  runtime: integer("runtime"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

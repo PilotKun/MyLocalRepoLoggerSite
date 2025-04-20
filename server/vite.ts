@@ -71,18 +71,33 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
+  // Correct path to the client build output directory
+  // Assumes Vite builds into 'dist/client' relative to project root
+  const clientDistPath = path.resolve(__dirname, "..", "client"); 
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  log(`Serving static files from: ${clientDistPath}`);
+
+  if (!fs.existsSync(clientDistPath)) {
+    log(`Error: Build directory not found at ${clientDistPath}`);
+    // Optionally, attempt a fallback or throw a clearer error
+    // For now, let it potentially fail later if index.html isn't found
+    // throw new Error(
+    //   `Could not find the client build directory: ${clientDistPath}, make sure the client build completed successfully within the 'dist' folder`,
+    // );
   }
 
-  app.use(express.static(distPath));
+  // Serve static files (JS, CSS, images, etc.) from the client build directory
+  app.use(express.static(clientDistPath));
 
-  // fall through to index.html if the file doesn't exist
+  // Fallback: For any request that doesn't match a static file, serve the index.html
+  // This is crucial for single-page applications (SPAs) with client-side routing
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(clientDistPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // Handle case where index.html is missing (build might have failed)
+      res.status(404).send("Client application not found. Build may be incomplete.");
+    }
   });
 }

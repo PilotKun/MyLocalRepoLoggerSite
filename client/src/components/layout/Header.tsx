@@ -68,10 +68,10 @@ export default function Header({ toggleSidebar }: HeaderProps) {
             <span className="text-xl font-bold">CineLog</span>
           </Link>
         </div>
-        <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:space-x-4">
+        <div className="hidden md:flex md:items-center md:justify-end md:space-x-2">
           {currentUser ? (
             <>
-              <Button variant="ghost" onClick={() => navigate("/my-lists")}>
+              <Button variant="ghost" onClick={() => navigate("/lists")}>
                 My Lists
               </Button>
               <DropdownMenu>

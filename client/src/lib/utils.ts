@@ -13,6 +13,9 @@ export function formatDate(date: Date | string): string {
 
 export function formatRelativeTime(date: Date | string): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return "Invalid date";
+  }
   return formatDistanceToNow(dateObj, { addSuffix: true });
 }
 

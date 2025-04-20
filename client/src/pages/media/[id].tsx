@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getMovieDetails, getTVShowDetails, getMovieRecommendations, getTVShowRecommendations } from "@/lib/tmdb";
 import { getImageUrl, formatRuntime, formatDate } from "@/lib/utils";
+import { TMDBMovie, TMDBTVShow } from "@shared/schema";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ import {
   CheckSquare 
 } from "lucide-react";
 import MediaGrid from "@/components/media/MediaGrid";
+
+// Define a union type for the details
+type TMDBDetails = TMDBMovie | TMDBTVShow;
 
 export default function MediaDetail() {
   const [, navigate] = useLocation();
@@ -35,7 +39,7 @@ export default function MediaDetail() {
   const mediaType = searchParams.get("type") || "movie";
   
   // Fetch media details based on type
-  const { data: mediaDetails, isLoading: detailsLoading } = useQuery({
+  const { data: mediaDetails, isLoading: detailsLoading } = useQuery<TMDBDetails | undefined>({
     queryKey: [`/${mediaType}/${mediaId}`],
     queryFn: () => mediaType === "movie" 
       ? getMovieDetails(mediaId) 
@@ -113,7 +117,7 @@ export default function MediaDetail() {
 
       toast({
         title: "Added to watchlist",
-        description: `${mediaType === "movie" ? mediaDetails?.title : mediaDetails?.name} has been added to your watchlist`,
+        description: `${mediaType === "movie" ? (mediaDetails as TMDBMovie)?.title : (mediaDetails as TMDBTVShow)?.name} has been added to your watchlist`,
       });
 
       // Invalidate relevant queries
@@ -146,7 +150,7 @@ export default function MediaDetail() {
 
       toast({
         title: "Marked as watched",
-        description: `${mediaType === "movie" ? mediaDetails?.title : mediaDetails?.name} has been marked as watched`,
+        description: `${mediaType === "movie" ? (mediaDetails as TMDBMovie)?.title : (mediaDetails as TMDBTVShow)?.name} has been marked as watched`,
       });
 
       // Invalidate relevant queries
@@ -179,7 +183,7 @@ export default function MediaDetail() {
 
       toast({
         title: "Added to favorites",
-        description: `${mediaType === "movie" ? mediaDetails?.title : mediaDetails?.name} has been added to your favorites`,
+        description: `${mediaType === "movie" ? (mediaDetails as TMDBMovie)?.title : (mediaDetails as TMDBTVShow)?.name} has been added to your favorites`,
       });
 
       // Invalidate relevant queries
@@ -229,10 +233,13 @@ export default function MediaDetail() {
       </div>
     );
   }
-
   // Extract data based on media type
-  const title = mediaType === "movie" ? mediaDetails.title : mediaDetails.name;
-  const releaseDate = mediaType === "movie" ? mediaDetails.release_date : mediaDetails.first_air_date;
+  const title = mediaType === "movie" 
+    ? (mediaDetails as TMDBMovie).title 
+    : (mediaDetails as TMDBTVShow).name;
+  const releaseDate = mediaType === "movie" 
+    ? (mediaDetails as TMDBMovie).release_date 
+    : (mediaDetails as TMDBTVShow).first_air_date;
   const overview = mediaDetails.overview;
   const posterPath = mediaDetails.poster_path;
   const backdropPath = mediaDetails.backdrop_path;
