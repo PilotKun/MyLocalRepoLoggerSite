@@ -1,25 +1,26 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "dist/**",
-          "node_modules/**"
-        ]
+    "version": 2,
+    "builds": [
+      {
+        "src": "package.json",
+        "use": "@vercel/node",
+        "config": {
+          "includeFiles": [
+            "dist/**",
+            "node_modules/**"
+          ]
+        }
       }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.js"
-    }
-  ]
-} 
+    ],
+    "routes": [
+      {
+        "src": "/api/(.*)",
+        "dest": "/dist/index.js"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/dist/index.js"
+      }
+    ]
+  }
+  
