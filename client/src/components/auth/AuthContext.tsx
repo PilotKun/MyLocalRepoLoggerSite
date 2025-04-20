@@ -12,7 +12,7 @@ import {
   signInWithRedirect,
   getRedirectResult
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebase.ts';
 import { createOrUpdateUser } from '@/lib/api';
 
 interface AuthContextType {
