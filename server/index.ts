@@ -1,9 +1,13 @@
+console.log("[Server Start] Top of server/index.ts executing.");
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { connectToDatabase, closeDatabase } from "./db";
 import cors from "cors";
 import dotenv from "dotenv";
+
+console.log("[Server Start] Imports completed.");
 
 dotenv.config();
 
@@ -43,6 +47,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log("[Server Start] Inside async block.");
   // Connect to PostgreSQL
   try {
     await connectToDatabase();
@@ -53,6 +58,7 @@ app.use((req, res, next) => {
   }
   
   const server = await registerRoutes(app);
+  console.log("[Server Start] Routes registered.");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -71,8 +77,13 @@ app.use((req, res, next) => {
 
   // Start the server
   const port = Number(process.env.PORT || 5001);
+  console.log(`[Server Start] Attempting to listen on port: ${port}`);
   server.listen(port, () => {
-    log(`Server is running on http://localhost:${port}`);
+    try {
+      log(`Server is running on http://localhost:${port}`);
+    } catch {
+      console.log(`[Server Start] Server successfully listening on port: ${port}`);
+    }
   });
   
   // Add graceful shutdown for PostgreSQL connection
@@ -87,6 +98,7 @@ app.use((req, res, next) => {
     process.exit(0);
   });
 })().catch(err => {
-  console.error('Failed to start server:', err);
+  // Log any errors during async setup
+  console.error('[Server Start] Failed to start server:', err);
   process.exit(1);
 });
