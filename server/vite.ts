@@ -74,28 +74,45 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Path should match vite.config.ts build.outDir relative to server output
   const clientDistPath = path.resolve(__dirname, "public"); 
-
-  log(`Serving static files from: ${clientDistPath}`);
+  log(`[Serve Static] Configured to serve from: ${clientDistPath}`);
 
   if (!fs.existsSync(clientDistPath)) {
-    log(`Error: Build directory not found at ${clientDistPath}. Make sure client build ran successfully.`);
-    // Handle missing directory - maybe throw, or let the fallback handle it
+    log(`[Serve Static] Error: Build directory NOT FOUND at ${clientDistPath}.`);
+  } else {
+    log(`[Serve Static] Build directory found at ${clientDistPath}.`);
   }
 
-  // Serve static files (JS, CSS, images, etc.) from the client build directory
+  // Serve static files directly
+  log(`[Serve Static] Setting up express.static for ${clientDistPath}`);
   app.use(express.static(clientDistPath));
 
-  // Fallback: For any request that doesn't match a static file, serve the index.html
-  // This is crucial for single-page applications (SPAs) with client-side routing
-  app.use("*", (_req, res) => {
+  // SPA Fallback for non-API routes
+  log(`[Serve Static] Setting up SPA fallback route.`);
+  app.use("*", (req, res) => {
+    // Avoid interfering with API routes if they somehow fall through (shouldn't happen with vercel.json)
+    if (req.originalUrl.startsWith('/api/')) {
+       log(`[Serve Static] Fallback ignoring API route: ${req.originalUrl}`);
+       return res.status(404).send('API route not handled.'); // Or call next() if appropriate
+    }
+    
     const indexPath = path.resolve(clientDistPath, "index.html");
+    log(`[Serve Static] Fallback triggered for ${req.originalUrl}. Attempting to serve: ${indexPath}`);
+    
     if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
+      log(`[Serve Static] index.html FOUND. Sending file.`);
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          log(`[Serve Static] Error sending index.html: ${err}`);
+          // Need to handle the error response properly here if sendFile fails
+          if (!res.headersSent) {
+             res.status(500).send("Error serving application.");
+          }
+        }
+      });
     } else {
-      // Handle case where index.html is missing (build might have failed)
-      res.status(404).send("Client application not found. Build may be incomplete.");
+      log(`[Serve Static] Error: index.html NOT FOUND at ${indexPath}`);
+      res.status(404).send("Client application index.html not found. Build may be incomplete.");
     }
   });
 }
