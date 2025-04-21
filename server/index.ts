@@ -10,11 +10,14 @@ import dotenv from "dotenv";
 console.log("[Server Start] Imports completed.");
 
 dotenv.config();
+console.log("[Server Start] dotenv configured.");
 
 const app = express();
+console.log("[Server Start] Express app created.");
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+console.log("[Server Start] Basic middleware applied.");
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -47,32 +50,41 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  console.log("[Server Start] Inside async block.");
+  console.log("[Server Start] Inside async setup block.");
+  
   // Connect to PostgreSQL
   try {
+    console.log("[Server Start] Attempting to connect to database...");
     await connectToDatabase();
-    log('Connected to PostgreSQL successfully');
+    log('[Server Start] Connected to PostgreSQL successfully');
   } catch (error) {
-    log('Failed to connect to database: ' + error);
-    // Continue execution even if PostgreSQL fails - the app can fallback to in-memory storage
+    console.error('[Server Start] Failed to connect to database:', error);
+    // Decide if you want to exit or continue if DB fails
+    // process.exit(1); // Uncomment to force exit on DB connection failure
   }
   
+  console.log("[Server Start] Attempting to register routes...");
   const server = await registerRoutes(app);
   console.log("[Server Start] Routes registered.");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("[Server Start] Global Error Handler caught:", err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
-    throw err;
+    // Removed throw err; as it might terminate the process prematurely in some environments
   });
+  console.log("[Server Start] Global error handler registered.");
 
-  // Setup Vite in development
-  if (app.get("env") === "development") {
+  // Setup Vite or static serving based on environment
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Server Start] Setting up Vite HMR...");
     await setupVite(app, server);
+    console.log("[Server Start] Vite HMR setup complete.");
   } else {
+    console.log("[Server Start] Setting up static file serving...");
     serveStatic(app);
+    console.log("[Server Start] Static file serving setup complete.");
   }
 
   // Start the server
@@ -84,9 +96,11 @@ app.use((req, res, next) => {
     } catch {
       console.log(`[Server Start] Server successfully listening on port: ${port}`);
     }
+  }).on('error', (err) => {
+    console.error('[Server Start] Server listen error:', err); // Log errors during listen
   });
   
-  // Add graceful shutdown for PostgreSQL connection
+  // Graceful shutdown (leave as is)
   process.on('SIGINT', async () => {
     log('Shutting down server...');
     try {
@@ -97,8 +111,8 @@ app.use((req, res, next) => {
     }
     process.exit(0);
   });
+
 })().catch(err => {
-  // Log any errors during async setup
-  console.error('[Server Start] Failed to start server:', err);
+  console.error('[Server Start] Uncaught error in async setup block:', err);
   process.exit(1);
 });
