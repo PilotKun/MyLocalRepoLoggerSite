@@ -11,7 +11,8 @@ import {
   DialogDescription, 
   DialogFooter, 
   DialogHeader, 
-  DialogTitle 
+  DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog";
 import { 
   Card, 
@@ -75,20 +76,28 @@ export default function ListDetail() {
   const listId = parseInt(params.id);
 
   // Fetch list details
-  const { data: list, isLoading } = useQuery({
+  const { data: listData, isLoading, error } = useQuery({
     queryKey: [`/api/lists/${listId}`, currentUser?.uid],
     queryFn: async () => {
       if (!currentUser) return null;
       try {
-        const response = await apiRequest("GET", `/api/lists/${listId}?userId=${currentUser.uid}`);
-        const list = await response.json();
-        return list;
-      } catch (error) {
-        console.error("Error fetching list:", error);
+        const response = await apiRequest("GET", `/api/lists/${listId}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log('List not found (404)');
+            return null;
+          }
+          throw new Error(`API responded with status ${response.status}`);
+        }
+        const data = await response.json();
+        console.log("Fetched list details and items:", data);
+        return data;
+      } catch (err) {
+        console.error("Error fetching list details:", err);
         return null;
       }
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser && !isNaN(listId),
   });
 
   const handleDeleteList = async () => {
@@ -257,156 +266,158 @@ export default function ListDetail() {
 
   if (isLoading) {
     return (
-      <div className="container px-4 py-6 md:px-6 md:py-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Link href="/lists">
-            <Button variant="outline" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">Loading list...</h1>
-        </div>
-        <Card className="animate-pulse">
-          <CardHeader className="h-24 bg-muted/50" />
-          <CardContent className="p-4">
-            <div className="h-5 w-2/3 rounded bg-muted/50" />
-            <div className="mt-2 h-3 w-full rounded bg-muted/50" />
-          </CardContent>
-        </Card>
+      <div className="container px-4 py-6 text-center md:px-6 md:py-8">
+        Loading list details...
       </div>
     );
   }
 
-  if (!list) {
+  if (!listData) {
     return (
-      <div className="container flex flex-col items-center justify-center px-4 py-16 text-center md:px-6">
-        <h1 className="mb-4 text-3xl font-bold">List Not Found</h1>
-        <p className="mb-8 max-w-md text-muted-foreground">
+      <div className="container px-4 py-6 text-center md:px-6 md:py-8">
+        <h1 className="mb-4 text-2xl font-bold">List Not Found</h1>
+        <p className="mb-6 text-muted-foreground">
           The list you're looking for doesn't exist or has been removed.
         </p>
-        <Button onClick={() => navigate("/lists")}>Go to Lists</Button>
+        <Link href="/lists">
+          <Button variant="outline">Back to Lists</Button>
+        </Link>
       </div>
     );
   }
+
+  const { items, ...listDetails } = listData;
 
   return (
     <div className="container px-4 py-6 md:px-6 md:py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div className="flex items-center gap-2">
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <Link href="/lists">
-            <Button variant="outline" size="icon" className="h-8 w-8">
+            <Button variant="outline" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <ListPlus className="h-6 w-6" />
-              {list.name}
-              {list.isPublic ? (
-                <Globe className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <Lock className="h-5 w-5 text-muted-foreground" />
-              )}
-            </h1>
-            {list.description && (
-              <p className="text-muted-foreground mt-1">{list.description}</p>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            {listDetails.isPublic ? (
+              <Globe className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <Lock className="h-5 w-5 text-muted-foreground" />
+            )}
+            {listDetails.name}
+          </h1>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setQuickAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Quick Add
+          </Button>
+          <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <Trash2 className="h-4 w-4" />
+                Delete List
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Delete List</DialogTitle>
+                <DialogDescription>
+                  Do you really want to delete this list? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end">
+                <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                  No
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteList}>
+                  Yes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {listDetails.description && (
+        <p className="mb-6 text-muted-foreground">{listDetails.description}</p>
+      )}
+
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="mb-4 grid w-full grid-cols-3">
+          <TabsTrigger value="all">All ({items.length})</TabsTrigger>
+          <TabsTrigger value="movies">
+            Movies ({items.filter(item => item.media.type === 'movie').length})
+          </TabsTrigger>
+          <TabsTrigger value="shows">
+            TV Shows ({items.filter(item => item.media.type === 'tv').length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {items.length === 0 ? (
+              <p className="col-span-full text-center text-muted-foreground">
+                This list is empty. Use "Quick Add" to add movies and shows.
+              </p>
+            ) : (
+              items.map((item) => (
+                <ListItem
+                  key={item.listItemId}
+                  item={item}
+                  onEditClick={() => handleEditClick(item)}
+                />
+              ))
             )}
           </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            className="gap-2"
-            onClick={() => setQuickAddOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Quick Add
-          </Button>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setDeleteConfirmOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete List
-          </Button>
-        </div>
-      </div>
+        </TabsContent>
 
-      <div className="space-y-4">
-        {!list.items || list.items.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-lg text-muted-foreground">This list is empty.</p>
-            <p className="text-sm text-muted-foreground">Add movies or TV shows to your list!</p>
-          </div>
-        ) : (
-          list.items.map((itemData: any) => {
-            // Map the fetched data to the expected ListItemData structure
-            const mappedItem: ListItemData = {
-              id: itemData.id, // This is the list_item ID
-              listId: list.id,
-              mediaId: itemData.media.id,
-              tmdbId: itemData.media.tmdbId,
-              title: itemData.media.title,
-              type: itemData.media.type,
-              voteAverage: itemData.media.voteAverage || 0,
-              seasonsWatched: itemData.seasonsWatched,
-              status: itemData.status,
-              createdAt: itemData.createdAt,
-              posterPath: itemData.media.posterPath,
-              userRating: itemData.userRating
-            };
-            return (
-              <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardContent className="p-0"> {/* Remove padding here if ListItem has its own */}
+        <TabsContent value="movies">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {items.filter(item => item.media.type === 'movie').length === 0 ? (
+               <p className="col-span-full text-center text-muted-foreground">
+                No movies in this list yet.
+              </p>
+            ) : (
+              items
+                .filter(item => item.media.type === 'movie')
+                .map((item) => (
                   <ListItem 
-                    item={mappedItem}
-                    onEdit={handleEditClick} // Pass the handler
-                    onRatingChange={() => {
-                      console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
-                      queryClient.invalidateQueries({ 
-                        queryKey: [`/api/lists/${listId}`, currentUser?.uid],
-                        refetchType: 'active'
-                      });
-                    }}
+                    key={item.listItemId} 
+                    item={item} 
+                    onEditClick={() => handleEditClick(item)}
                   />
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
-      
-      {/* Edit Item Dialog */}
-      <EditItemDialog 
-        item={editingItem} 
-        open={isEditDialogOpen} 
-        onOpenChange={setIsEditDialogOpen} 
-        // Optionally add onSaved if needed later, e.g., for specific refresh logic
-      />
-      
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete List</DialogTitle>
-            <DialogDescription>
-              Do you really want to delete this list? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
-              No
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteList}>
-              Yes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                ))
+            )}
+          </div>
+        </TabsContent>
 
-      {/* Quick Add Dialog */}
+        <TabsContent value="shows">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {items.filter(item => item.media.type === 'tv').length === 0 ? (
+               <p className="col-span-full text-center text-muted-foreground">
+                No TV shows in this list yet.
+              </p>
+            ) : (
+              items
+                .filter(item => item.media.type === 'tv')
+                .map((item) => (
+                  <ListItem 
+                    key={item.listItemId} 
+                    item={item} 
+                    onEditClick={() => handleEditClick(item)}
+                  />
+                ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+      
+      <EditItemDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        itemData={editingItem}
+        listId={listId}
+      />
+
       <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

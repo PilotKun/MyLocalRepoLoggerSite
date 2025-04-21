@@ -13,10 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // GET /api/users/:userId/lists - Get lists for a user
   if (req.method === 'GET') {
+    let userId: string | null = null; // Declare userId outside the try block
     try {
       // In this file structure, Vercel puts the dynamic part ([userId]) 
       // directly into req.query
-      const userId = req.query.userId as string; 
+      userId = req.query.userId as string; // Assign value inside the try block
       
       if (!userId) {
         return res.status(400).json({ 
@@ -43,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.json(lists);
     } catch (error) {
+      // Now userId is accessible here
       console.error('Error fetching lists for user:', userId, error);
       return res.status(500).json({ 
         message: "Failed to fetch lists",
