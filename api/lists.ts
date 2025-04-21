@@ -22,15 +22,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Insert the new list into the database
       const result = await sql`
-        INSERT INTO lists (name, description, is_public, user_id, created_at, updated_at)
-        VALUES (${name}, ${description || null}, ${isPublic || false}, ${userId}, NOW(), NOW())
+        INSERT INTO lists (name, description, is_public, user_id)
+        VALUES (${name}, ${description || null}, ${isPublic || false}, ${userId})
         RETURNING *;
       `;
 
       const newList = result.rows[0];
-      
       return res.status(201).json({
         id: newList.id,
         name: newList.name,
@@ -43,7 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       console.error('Error creating list:', error);
       return res.status(500).json({ 
-        message: "Failed to create list" 
+        message: "Failed to create list",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -79,7 +78,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       console.error('Error fetching lists:', error);
       return res.status(500).json({ 
-        message: "Failed to fetch lists" 
+        message: "Failed to fetch lists",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
