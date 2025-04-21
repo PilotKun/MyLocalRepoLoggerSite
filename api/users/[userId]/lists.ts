@@ -39,7 +39,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isPublic: list.is_public, 
         userId: list.user_id, 
         createdAt: list.created_at,
-        updatedAt: list.updated_at
       }));
 
       return res.json(lists);

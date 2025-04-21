@@ -36,7 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isPublic: newList.is_public,
         userId: newList.user_id,
         createdAt: newList.created_at,
-        updatedAt: newList.updated_at
       });
     } catch (error) {
       console.error('Error creating list:', error);

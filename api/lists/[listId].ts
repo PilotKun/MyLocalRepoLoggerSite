@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // 1. Fetch list details
       const listResult = await sql`
-        SELECT id, name, description, is_public, user_id, created_at, updated_at 
+        SELECT id, name, description, is_public, user_id, created_at 
         FROM lists 
         WHERE id = ${numericListId};
       `;
@@ -93,7 +93,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isPublic: listDetails.is_public,
         userId: listDetails.user_id,
         createdAt: listDetails.created_at,
-        updatedAt: listDetails.updated_at,
         items: items // Include the fetched items
       };
 
