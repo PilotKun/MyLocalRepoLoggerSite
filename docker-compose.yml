@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16 # You can specify a different version if needed
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser} # Use env var or default
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mypassword} # Use env var or default
+      POSTGRES_DB: ${POSTGRES_DB:-mydatabase} # Use env var or default
+    ports:
+      - "5432:5432" # Map host port 5432 to container port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data using a named volume
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydatabase}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: . # Build from the root context
+      dockerfile: server/Dockerfile # Specify server Dockerfile location
+    container_name: logging_server
+    restart: always
+    ports:
+      - "4000:4000" # Map host port 4000 to container port 4000 (adjust if server uses a different port)
+    depends_on:
+      db:
+        condition: service_healthy # Wait for db to be healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myuser}:${POSTGRES_PASSWORD:-mypassword}@db:5432/${POSTGRES_DB:-mydatabase}
+      # Add any other necessary server environment variables here
+      NODE_ENV: development # Or production
+    volumes:
+      # Optional: Mount local server code for development (remove for production)
+      # - ./server:/app/server
+      # - ./shared:/app/shared
+      # Avoid mounting node_modules; let the container handle it
+      - /app/node_modules # Anonymous volume to prevent host node_modules overwriting container's
+    # Command to run migrations (adjust based on your setup)
+    # command: sh -c "npm run db:migrate && npm run dev:server"
+    command: npm run dev:server # Or your production start command
+
+  client:
+    build:
+      context: . # Build from the root context
+      dockerfile: client/Dockerfile # Specify client Dockerfile location
+    container_name: logging_client
+    restart: always
+    ports:
+      - "8080:80" # Map host port 8080 to container port 80 (Nginx default)
+    depends_on:
+      - server # Client might depend on the server API
+    volumes:
+      # Optional: Mount local client code for development (remove for production)
+      # - ./client:/app/client
+      # - ./public:/app/public
+      # Avoid mounting node_modules; let the container handle it
+      - /app/node_modules # Anonymous volume
+
+volumes:
+  postgres_data: # Define the named volume 
