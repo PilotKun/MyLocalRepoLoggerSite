@@ -38,7 +38,6 @@ import { PlusCircle, ListPlus, Globe, Lock, Star, Film, Tv, Trash2 } from "lucid
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import ListItem from "@/components/media/ListItem";
 
 const formSchema = z.object({
   name: z.string().min(1, "List name is required"),
@@ -52,6 +51,8 @@ export default function Lists() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [listToDelete, setListToDelete] = useState<number | null>(null);
   const { toast } = useToast();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,7 +64,7 @@ export default function Lists() {
   });
 
   // Fetch user's lists with items
-  const { data: lists, isLoading } = useQuery({
+  const { data: lists, isLoading, error } = useQuery({
     queryKey: [`/api/users/${currentUser?.uid}/lists`],
     queryFn: async () => {
       try {
@@ -159,7 +160,7 @@ export default function Lists() {
         <p className="mb-8 max-w-md text-muted-foreground">
           Sign in to create and manage your custom movie and TV show lists.
         </p>
-        <Button onClick={() => setOpen(true)}>Sign In</Button>
+        <Button onClick={() => setShowAuthModal(true)}>Sign In</Button>
       </div>
     );
   }
@@ -184,133 +185,66 @@ export default function Lists() {
   }
 
   return (
-    <div className="container px-4 py-6 md:px-6 md:py-8">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="flex h-full flex-col px-4 py-6 md:px-6 md:py-8">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Your Lists</h1>
-        
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <PlusCircle className="h-4 w-4" />
-              Create New List
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New List</DialogTitle>
-              <DialogDescription>
-                Create a custom list to organize your favorite movies and TV shows.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>List Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. My Favorite Sci-Fi" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Add a description for your list..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="isPublic"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Public List</FormLabel>
-                        <FormDescription>
-                          Make this list visible to other users
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <DialogFooter>
-                  <Button type="submit">Create List</Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <ListPlus className="mr-2 h-4 w-4" /> Create New List
+        </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {lists?.map((list: any) => (
-          <Link key={list.id} href={`/lists/${list.id}`}>
-            <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <ListPlus className="h-5 w-5" />
-                    {list.name}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {list.isPublic ? (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <button 
-                      onClick={(e) => openDeleteConfirm(e, list.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <CardDescription>{list.description || "No description"}</CardDescription>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Film className="h-4 w-4" />
-                    <span>0 Movies</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Tv className="h-4 w-4" />
-                    <span>0 Shows</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <div className="flex-1">
+        {isLoading ? (
+          <p>Loading lists...</p>
+        ) : error ? (
+          <p>Error fetching lists. Please try again later.</p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {lists?.map((list: any) => (
+              <Link key={list.id} href={`/lists/${list.id}`}>
+                <Card className="cursor-pointer transition-shadow hover:shadow-lg">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <ListPlus className="h-5 w-5" />
+                        {list.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        {list.isPublic ? (
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <button 
+                          onClick={(e) => openDeleteConfirm(e, list.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <CardDescription>{list.description || "No description"}</CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Film className="h-4 w-4" />
+                        <span>0 Movies</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Tv className="h-4 w-4" />
+                        <span>0 Shows</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

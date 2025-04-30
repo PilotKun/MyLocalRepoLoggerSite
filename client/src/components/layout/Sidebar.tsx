@@ -33,7 +33,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
         <div className="flex flex-col gap-1">
           <h2 className={cn("px-4 text-lg font-semibold tracking-tight", !sidebarOpen && "hidden")}>Navigate</h2>
           <nav className="flex flex-col gap-1">
-            <Link
+            <Link 
               href="/"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -44,7 +44,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
               <Home className="h-4 w-4" />
               <span className={cn(!sidebarOpen && "hidden")}>Home</span>
             </Link>
-            <Link
+            <Link 
               href="/discover"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -55,7 +55,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
               <Globe className="h-4 w-4" />
               <span className={cn(!sidebarOpen && "hidden")}>Discover</span>
             </Link>
-            <Link
+            <Link 
               href="/search"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -72,7 +72,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
         <div className="flex flex-col gap-1">
           <h2 className={cn("px-4 text-lg font-semibold tracking-tight", !sidebarOpen && "hidden")}>Library</h2>
           <nav className="flex flex-col gap-1">
-            <Link
+            <Link 
               href="/watchlist"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -83,7 +83,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
               <Heart className="h-4 w-4" />
               <span className={cn(!sidebarOpen && "hidden")}>Watchlist</span>
             </Link>
-            <Link
+            <Link 
               href="/favorites"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -94,7 +94,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
               <Star className="h-4 w-4" />
               <span className={cn(!sidebarOpen && "hidden")}>Favorites</span>
             </Link>
-            <Link
+            <Link 
               href="/lists"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -111,7 +111,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
         <div className="flex flex-col gap-1">
           <h2 className={cn("px-4 text-lg font-semibold tracking-tight", !sidebarOpen && "hidden")}>Categories</h2>
           <nav className="flex flex-col gap-1">
-            <Link
+            <Link 
               href="/movies"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
@@ -122,7 +122,7 @@ export default function Sidebar({ className, sidebarOpen }: SidebarProps) {
               <Film className="h-4 w-4" />
               <span className={cn(!sidebarOpen && "hidden")}>Movies</span>
             </Link>
-            <Link
+            <Link 
               href="/tv-shows"
               className={cn(
                 "flex items-center rounded-lg py-2 text-foreground/70 transition-colors hover:text-foreground",
