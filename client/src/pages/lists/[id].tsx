@@ -28,15 +28,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ListPlus, Globe, Lock, Trash2, ArrowLeft, Plus, Film, Tv, Search, X } from "lucide-react";
+import { ListPlus, Globe, Lock, Trash2, ArrowLeft, Plus, Film, Tv, Search, X, List, LayoutGrid } from "lucide-react";
 import { Link } from "wouter";
 import ListItem from "@/components/media/ListItem";
 import { searchMedia } from "@/lib/tmdb";
 import EditItemDialog from "@/components/media/EditItemDialog";
+import GridItem from "@/components/media/GridItem";
 
 // Define the type for a list item based on ListItemProps
 // This helps ensure consistency
-type ListItemData = React.ComponentProps<typeof ListItem>['item'];
+export type ListItemData = React.ComponentProps<typeof ListItem>['item'];
 
 // Status options for media items
 type WatchStatus = "watched" | "watchlist" | "watching" | "on hold" | "dropped";
@@ -66,6 +67,7 @@ export default function ListDetail() {
   const [addLoading, setAddLoading] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ListItemData | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   if (!match) {
     navigate("/not-found");
@@ -334,6 +336,17 @@ export default function ListDetail() {
         </div>
       </div>
 
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "list" | "grid")} className="mb-4">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:grid-cols-[auto_auto] justify-start">
+          <TabsTrigger value="list" className="gap-2">
+            <List className="h-4 w-4" /> List
+          </TabsTrigger>
+          <TabsTrigger value="grid" className="gap-2">
+            <LayoutGrid className="h-4 w-4" /> Grid
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="space-y-4">
         {!list.items || list.items.length === 0 ? (
           <div className="text-center py-8">
@@ -341,40 +354,70 @@ export default function ListDetail() {
             <p className="text-sm text-muted-foreground">Add movies or TV shows to your list!</p>
           </div>
         ) : (
-          list.items.map((itemData: any) => {
-            // Map the fetched data to the expected ListItemData structure
-            const mappedItem: ListItemData = {
-              id: itemData.id, // This is the list_item ID
-              listId: list.id,
-              mediaId: itemData.media.id,
-              tmdbId: itemData.media.tmdbId,
-              title: itemData.media.title,
-              type: itemData.media.type,
-              voteAverage: itemData.media.voteAverage || 0,
-              seasonsWatched: itemData.seasonsWatched,
-              status: itemData.status,
-              createdAt: itemData.createdAt,
-              posterPath: itemData.media.posterPath,
-              userRating: itemData.userRating
-            };
-            return (
-              <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardContent className="p-0"> {/* Remove padding here if ListItem has its own */}
-                  <ListItem 
-                    item={mappedItem}
-                    onEdit={handleEditClick} // Pass the handler
-                    onRatingChange={() => {
-                      console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
-                      queryClient.invalidateQueries({ 
-                        queryKey: [`/api/lists/${listId}`, currentUser?.uid],
-                        refetchType: 'active'
-                      });
-                    }}
+          viewMode === "list" ? (
+            list.items.map((itemData: any) => {
+              // Map the fetched data to the expected ListItemData structure
+              const mappedItem: ListItemData = {
+                id: itemData.id, // This is the list_item ID
+                listId: list.id,
+                mediaId: itemData.media.id,
+                tmdbId: itemData.media.tmdbId,
+                title: itemData.media.title,
+                type: itemData.media.type,
+                voteAverage: itemData.media.voteAverage || 0,
+                seasonsWatched: itemData.seasonsWatched,
+                status: itemData.status,
+                createdAt: itemData.createdAt,
+                posterPath: itemData.media.posterPath,
+                userRating: itemData.userRating
+              };
+              return (
+                <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <CardContent className="p-0"> {/* Remove padding here if ListItem has its own */}
+                    <ListItem 
+                      item={mappedItem}
+                      onEdit={handleEditClick} // Pass the handler
+                      onRatingChange={() => {
+                        console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
+                        queryClient.invalidateQueries({ 
+                          queryKey: [`/api/lists/${listId}`, currentUser?.uid],
+                          refetchType: 'active'
+                        });
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            // Placeholder for Grid View
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {list.items.map((itemData: any) => {
+                // Ensure this mapping aligns with both ListItemData and GridItem's expected item structure
+                const mappedItem: ListItemData = {
+                  id: itemData.id,
+                  listId: list.id,
+                  mediaId: itemData.media.id,
+                  tmdbId: itemData.media.tmdbId,
+                  title: itemData.media.title,
+                  type: itemData.media.type,
+                  voteAverage: itemData.media.voteAverage || 0,
+                  seasonsWatched: itemData.seasonsWatched,
+                  status: itemData.status,
+                  createdAt: itemData.createdAt,
+                  posterPath: itemData.media.posterPath,
+                  userRating: itemData.userRating
+                };
+                return (
+                  <GridItem 
+                    key={`${mappedItem.id}-${mappedItem.mediaId}`} // Use a robust key
+                    item={mappedItem} 
+                    onEdit={handleEditClick} // Pass the edit handler
                   />
-                </CardContent>
-              </Card>
-            );
-          })
+                );
+              })}
+            </div>
+          )
         )}
       </div>
       
