@@ -75,7 +75,7 @@ export default function Search() {
       : tvLoading;
 
   return (
-    <div className="container px-4 py-6 md:px-6 md:py-8">
+    <div className="flex h-full flex-col px-4 py-6 md:px-6 md:py-8">
       <h1 className="mb-6 text-3xl font-bold">Search</h1>
       
       <form onSubmit={handleSearch} className="mb-6 flex gap-2">
@@ -92,14 +92,14 @@ export default function Search() {
       </form>
       
       {debouncedQuery ? (
-        <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as "all" | "movies" | "tv")}>
+        <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as "all" | "movies" | "tv")} className="flex flex-1 flex-col">
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="movies">Movies</TabsTrigger>
             <TabsTrigger value="tv">TV Shows</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="all" className="mt-6">
+          <TabsContent value="all" className="mt-6 flex-1">
             <MediaGrid 
               items={results} 
               isLoading={isLoading}
@@ -107,7 +107,7 @@ export default function Search() {
             />
           </TabsContent>
           
-          <TabsContent value="movies" className="mt-6">
+          <TabsContent value="movies" className="mt-6 flex-1">
             <MediaGrid 
               items={results}
               isLoading={isLoading}
@@ -115,7 +115,7 @@ export default function Search() {
             />
           </TabsContent>
           
-          <TabsContent value="tv" className="mt-6">
+          <TabsContent value="tv" className="mt-6 flex-1">
             <MediaGrid 
               items={results}
               isLoading={isLoading}
@@ -124,7 +124,7 @@ export default function Search() {
           </TabsContent>
         </Tabs>
       ) : (
-        <div className="flex h-60 flex-col items-center justify-center text-center">
+        <div className="flex flex-1 flex-col items-center justify-start pt-20 text-center">
           <SearchIcon className="mb-2 h-12 w-12 text-muted-foreground" />
           <h2 className="text-xl font-semibold">Search for something</h2>
           <p className="text-muted-foreground">

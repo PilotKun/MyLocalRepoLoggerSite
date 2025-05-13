@@ -26,7 +26,7 @@ import NotFound from "@/pages/not-found";
 import ListDetail from "@/pages/lists/[id]";
 
 function Router() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -36,8 +36,8 @@ function Router() {
     <div className="flex min-h-screen flex-col">
       <Header toggleSidebar={toggleSidebar} />
       <div className="flex flex-1">
-        <Sidebar className={sidebarOpen ? "flex md:flex" : "hidden md:flex"} />
-        <main className="flex-1 pt-16 md:pl-64">
+        <Sidebar sidebarOpen={sidebarOpen} />
+        <main className={`flex-1 pt-16 ${sidebarOpen ? 'md:pl-64' : 'md:pl-20'} transition-all duration-300 ease-in-out`}>
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/discover" component={Discover} />

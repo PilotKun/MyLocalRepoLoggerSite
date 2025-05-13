@@ -80,30 +80,28 @@ export default function Discover() {
     : tvByGenre?.results || [];
 
   return (
-    <div className="container px-4 py-6 md:px-6 md:py-8">
+    <div className="px-4 py-6 md:px-6 md:py-8">
       <h1 className="mb-6 text-3xl font-bold">Discover</h1>
       
       <Tabs defaultValue="movies" value={activeTab} onValueChange={(v) => setActiveTab(v as "movies" | "tv")}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <TabsList>
             <TabsTrigger value="movies">Movies</TabsTrigger>
             <TabsTrigger value="tv">TV Shows</TabsTrigger>
           </TabsList>
           
-          <div className="mt-4 w-full sm:mt-0 sm:w-64">
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a genre" />
-              </SelectTrigger>
-              <SelectContent>
-                {currentGenres.map((genre) => (
-                  <SelectItem key={genre.id} value={genre.id.toString()}>
-                    {genre.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+            <SelectTrigger className="w-full sm:w-64">
+              <SelectValue placeholder="Select a genre" />
+            </SelectTrigger>
+            <SelectContent>
+              {currentGenres.map((genre) => (
+                <SelectItem key={genre.id} value={genre.id.toString()}>
+                  {genre.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         <TabsContent value="movies" className="mt-6">

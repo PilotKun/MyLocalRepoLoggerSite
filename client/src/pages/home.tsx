@@ -15,9 +15,10 @@ import StatsCard from "@/components/user/StatsCard";
 import ActivityItem from "@/components/user/ActivityItem";
 import { TMDBMovie, TMDBTVShow } from "@shared/schema";
 import AuthModal from "@/components/auth/AuthModal";
+import { useAuth } from "@/components/auth/AuthContext";
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { currentUser } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Trending movies and shows
@@ -66,23 +67,25 @@ export default function Home() {
   ];
 
   return (
-    <div className="container px-4 py-6 md:px-6 md:py-8">
-      {/* Hero Section */}
-      <section className="relative mb-8 overflow-hidden rounded-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-background/20"></div>
-        <div className="relative flex flex-col gap-2 p-6 md:p-8">
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Welcome to CineLog</h1>
-          <p className="max-w-[600px] text-lg text-muted-foreground">
-            Track, discover, and share your favorite movies and TV shows.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button onClick={() => setShowAuthModal(true)}>Get Started</Button>
-            <Link href="/discover">
-              <Button variant="outline">Explore</Button>
-            </Link>
+    <div className="px-4 py-6 md:px-6 md:py-8">
+      {/* Hero Section - Conditionally render if user is NOT logged in */}
+      {!currentUser && (
+        <section className="relative mb-8 overflow-hidden rounded-xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-background/20"></div>
+          <div className="relative flex flex-col gap-2 p-6 md:p-8">
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Welcome to CineLog</h1>
+            <p className="max-w-[600px] text-lg text-muted-foreground">
+              Track, discover, and share your favorite movies and TV shows.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button onClick={() => setShowAuthModal(true)}>Get Started</Button>
+              <Link href="/discover">
+                <Button variant="outline">Explore</Button>
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Trending Section */}
       <section className="mb-8">
@@ -112,7 +115,8 @@ export default function Home() {
         />
       </section>
 
-      {isAuthenticated && (
+      {/* Use currentUser to conditionally render stats/activity */}
+      {currentUser && (
         <>
           {/* User Stats Section */}
           <section className="mb-8">
@@ -166,7 +170,6 @@ export default function Home() {
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
-          isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
         />
       )}
