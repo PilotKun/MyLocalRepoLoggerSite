@@ -524,8 +524,14 @@ export default function ListDetail() {
                 <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
                   <CardContent className="p-0"> 
                     <ListItem 
-                      item={mappedItem}
-                      onEdit={handleEditClick}
+                      item={{
+                        ...mappedItem,
+                        posterPath: mappedItem.posterPath || undefined
+                      }}
+                      onEdit={(itemFromListItem) => handleEditClick({
+                        ...itemFromListItem,
+                        posterPath: itemFromListItem.posterPath === undefined ? null : itemFromListItem.posterPath,
+                      })}
                       onRatingChange={() => {
                         console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
                         queryClient.invalidateQueries({ 
@@ -546,7 +552,10 @@ export default function ListDetail() {
                   <GridItem 
                     key={`${mappedItem.id}-${mappedItem.mediaId}`} 
                     item={mappedItem}
-                    onEdit={handleEditClick}
+                    onEdit={(itemFromListItem) => handleEditClick({
+                      ...itemFromListItem,
+                      posterPath: itemFromListItem.posterPath === undefined ? null : itemFromListItem.posterPath,
+                    })}
                   />
                 );
               })}

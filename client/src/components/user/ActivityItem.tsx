@@ -1,7 +1,7 @@
-import { formatRelativeTime, getImageUrl } from "@/lib/utils";
+import { getImageUrl } from "@/lib/utils";
 
 interface ActivityItemProps {
-  image: string;
+  image?: string;
   title: string;
   description: string;
   timestamp: string | Date;
@@ -13,10 +13,29 @@ export default function ActivityItem({
   description, 
   timestamp 
 }: ActivityItemProps) {
+  const posterBasePath = "https://image.tmdb.org/t/p/w500";
+  const fallbackPoster = "/fallback-poster.png";
+
+  const imgSrc = image ? `${posterBasePath}${image}` : fallbackPoster;
+
+  const formatDate = (dateInput: string | Date): string => {
+    if (typeof dateInput === 'string') {
+      return dateInput;
+    }
+    if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+      return dateInput.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+    return "Invalid date";
+  };
+
   return (
     <div className="flex gap-4 rounded-lg border p-4">
       <img 
-        src={getImageUrl(image)}
+        src={imgSrc}
         alt={title} 
         className="h-16 w-12 rounded-md object-cover" 
       />
@@ -26,7 +45,7 @@ export default function ActivityItem({
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         <time className="text-xs text-muted-foreground">
-          {formatRelativeTime(timestamp)}
+          {formatDate(timestamp)}
         </time>
       </div>
     </div>

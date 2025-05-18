@@ -10,12 +10,22 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { getTrending, getPopularTVShows } from "@/lib/tmdb";
+import { apiRequest } from "@/lib/queryClient";
 import MediaGrid from "@/components/media/MediaGrid";
 import StatsCard from "@/components/user/StatsCard";
-import ActivityItem from "@/components/user/ActivityItem";
 import { TMDBMovie, TMDBTVShow } from "@shared/schema";
 import AuthModal from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
+
+// Interface for user statistics
+interface UserStatsData {
+  moviesWatched: number;
+  tvShowsWatched: number;
+  averageRating: number;
+  totalWatchtime: number; // Assuming this is in hours or a unit that makes sense
+  // Add other stats fields if necessary, e.g., ratingsCount for averageRating subtitle
+  ratingsCount?: number; 
+}
 
 export default function Home() {
   const { currentUser } = useAuth();
@@ -33,38 +43,23 @@ export default function Home() {
     queryFn: () => getPopularTVShows(),
   });
 
-  // Mock user stats - these would come from the API in a real application
-  const userStats = {
-    moviesWatched: 86,
-    tvEpisodesWatched: 254,
-    averageRating: 7.4,
-    totalWatchtime: 428
-  };
-
-  // Mock activity - this would come from the API in a real application
-  const recentActivity = [
-    {
-      id: 1,
-      image: "/vBZ0qvaRxqEhZwl6LWmruJqWE8Z.jpg",
-      title: "You rated Dune: Part Two",
-      description: "You gave it 9/10",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+  // Fetch user statistics
+  const { 
+    data: userStats, 
+    isLoading: statsLoading, 
+    isError: statsError 
+  } = useQuery<UserStatsData>({
+    queryKey: [`/api/users/${currentUser?.uid}/stats`, currentUser?.uid],
+    queryFn: async () => {
+      if (!currentUser) return null; // Or throw an error, or return a default stats object
+      const response = await apiRequest("GET", `/api/users/${currentUser.uid}/stats`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch user stats");
+      }
+      return response.json();
     },
-    {
-      id: 2,
-      image: "/bMUGhsGZ6ZPVWm0gGGvmrThBCmF.jpg",
-      title: "You watched Fallout S01E04",
-      description: "Added to your watch history",
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
-    },
-    {
-      id: 3,
-      image: "/cG5QZsiWrk9s2WmQrZoRCBTVjPL.jpg",
-      title: "You added Challengers to watchlist",
-      description: "Added to your watchlist",
-      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
-    }
-  ];
+    enabled: !!currentUser, // Only run query if user is logged in
+  });
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-8">
@@ -115,54 +110,46 @@ export default function Home() {
         />
       </section>
 
-      {/* Use currentUser to conditionally render stats/activity */}
+      {/* Use currentUser to conditionally render stats */}
       {currentUser && (
         <>
           {/* User Stats Section */}
           <section className="mb-8">
             <h2 className="text-2xl font-bold tracking-tight">Your Stats</h2>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatsCard
-                title="Movies Watched"
-                value={userStats.moviesWatched}
-                subtitle="+12 this month"
-                icon={FileText}
-              />
-              <StatsCard
-                title="TV Episodes"
-                value={userStats.tvEpisodesWatched}
-                subtitle="+38 this month"
-                icon={CheckSquare}
-              />
-              <StatsCard
-                title="Average Rating"
-                value={userStats.averageRating}
-                subtitle="From 124 ratings"
-                icon={Star}
-              />
-              <StatsCard
-                title="Hours Watched"
-                value={userStats.totalWatchtime}
-                subtitle="+26 this month"
-                icon={Clock}
-              />
-            </div>
-          </section>
-
-          {/* Activity Section */}
-          <section className="mb-8">
-            <h2 className="text-2xl font-bold tracking-tight">Recent Activity</h2>
-            <div className="mt-4 space-y-4">
-              {recentActivity.map((activity) => (
-                <ActivityItem
-                  key={activity.id}
-                  image={activity.image}
-                  title={activity.title}
-                  description={activity.description}
-                  timestamp={activity.timestamp}
+            {statsLoading && (
+              <div className="mt-4 text-center text-muted-foreground">Loading your stats...</div>
+            )}
+            {statsError && (
+              <div className="mt-4 text-center text-destructive">Could not load your stats. Please try again later.</div>
+            )}
+            {userStats && !statsLoading && !statsError && (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatsCard
+                  title="Movies Watched"
+                  value={userStats.moviesWatched}
+                  subtitle="Total movies"
+                  icon={FileText}
                 />
-              ))}
-            </div>
+                <StatsCard
+                  title="TV Shows"
+                  value={userStats.tvShowsWatched}
+                  subtitle="Total shows"
+                  icon={CheckSquare}
+                />
+                <StatsCard
+                  title="Average Rating"
+                  value={userStats.averageRating > 0 ? userStats.averageRating.toFixed(1) : 'N/A'}
+                  subtitle={userStats.ratingsCount ? `From ${userStats.ratingsCount} ratings` : "No ratings yet"}
+                  icon={Star}
+                />
+                <StatsCard
+                  title="Hours Watched"
+                  value={userStats.totalWatchtime}
+                  subtitle="Total time"
+                  icon={Clock}
+                />
+              </div>
+            )}
           </section>
         </>
       )}
