@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -28,16 +28,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ListPlus, Globe, Lock, Trash2, ArrowLeft, Plus, Film, Tv, Search, X, List, LayoutGrid } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ListPlus, Globe, Lock, Trash2, ArrowLeft, Plus, Film, Tv, Search, X, List, LayoutGrid, Filter } from "lucide-react";
 import { Link } from "wouter";
 import ListItem from "@/components/media/ListItem";
 import { searchMedia } from "@/lib/tmdb";
 import EditItemDialog from "@/components/media/EditItemDialog";
 import GridItem from "@/components/media/GridItem";
 
-// Define the type for a list item based on ListItemProps
-// This helps ensure consistency
-export type ListItemData = React.ComponentProps<typeof ListItem>['item'];
+// Define the type for a list item
+export type ListItemData = {
+  id: number; // list_item id
+  listId: number;
+  mediaId: number;
+  tmdbId: number;
+  title: string;
+  type: "movie" | "tv";
+  posterPath: string | null; // Reverted to string | null
+  voteAverage: number;     // Must be a number
+  userRating?: number;
+  seasonsWatched?: number;
+  status?: string;          // Changed to string | undefined based on GridItem errors
+  createdAt?: string;
+};
 
 // Status options for media items
 type WatchStatus = "watched" | "watchlist" | "watching" | "on hold" | "dropped";
@@ -69,6 +89,18 @@ export default function ListDetail() {
   const [editingItem, setEditingItem] = useState<ListItemData | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
+  // State for filters
+  const [showOnlyMovies, setShowOnlyMovies] = useState(false);
+  const [showOnlySeries, setShowOnlySeries] = useState(false);
+  const [showRated, setShowRated] = useState(false);
+  const [showUnrated, setShowUnrated] = useState(false);
+  // New filter states
+  const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
+  const [filterDateAdded, setFilterDateAdded] = useState<string | undefined>(undefined);
+
+  // Define available statuses for filtering
+  const availableStatuses: WatchStatus[] = ["watched", "watchlist", "watching", "on hold", "dropped"];
+
   if (!match) {
     navigate("/not-found");
     return null;
@@ -92,6 +124,65 @@ export default function ListDetail() {
     },
     enabled: !!currentUser,
   });
+
+  const mappedListItems = useMemo(() => {
+    if (!list?.items) return [];
+    return list.items.map((itemData: any): ListItemData => ({
+      id: itemData.id,
+      listId: list.id,
+      mediaId: itemData.media.id,
+      tmdbId: itemData.media.tmdbId,
+      title: itemData.media.title,
+      type: itemData.media.type,
+      voteAverage: itemData.media.voteAverage || 0,
+      seasonsWatched: itemData.seasonsWatched,
+      status: itemData.status,
+      createdAt: itemData.createdAt,
+      posterPath: itemData.media.posterPath || null,
+      userRating: itemData.userRating,
+    }));
+  }, [list]);
+
+  const filteredItems = useMemo(() => {
+    let itemsToFilter = [...mappedListItems];
+
+    // Type filter
+    if (showOnlyMovies && !showOnlySeries) {
+      itemsToFilter = itemsToFilter.filter(item => item.type === "movie");
+    } else if (showOnlySeries && !showOnlyMovies) {
+      itemsToFilter = itemsToFilter.filter(item => item.type === "tv");
+    }
+    // If both are true or both are false, no type filtering is applied, showing all types.
+
+    // Rating filter
+    if (showRated && !showUnrated) {
+      itemsToFilter = itemsToFilter.filter(item => typeof item.userRating === 'number');
+    } else if (showUnrated && !showRated) {
+      itemsToFilter = itemsToFilter.filter(item => typeof item.userRating !== 'number' || item.userRating === null || item.userRating === undefined);
+    }
+    // If both are true or both are false, no rating filtering is applied.
+
+    // Status filter
+    if (filterStatus) {
+      itemsToFilter = itemsToFilter.filter(item => item.status === filterStatus);
+    }
+
+    // Date Added filter (sorting - can be enhanced later)
+    if (filterDateAdded) {
+      itemsToFilter.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        if (filterDateAdded === 'newest') {
+          return dateB - dateA;
+        } else if (filterDateAdded === 'oldest') {
+          return dateA - dateB;
+        }
+        return 0;
+      });
+    }
+
+    return itemsToFilter;
+  }, [mappedListItems, showOnlyMovies, showOnlySeries, showRated, showUnrated, filterStatus, filterDateAdded]);
 
   const handleDeleteList = async () => {
     if (!currentUser) return;
@@ -321,9 +412,76 @@ export default function ListDetail() {
             className="gap-2"
             onClick={() => setQuickAddOpen(true)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             Quick Add
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Filter className="mr-2 h-4 w-4" /> Filter
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={showOnlyMovies}
+                onCheckedChange={setShowOnlyMovies}
+              >
+                Movies Only
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showOnlySeries}
+                onCheckedChange={setShowOnlySeries}
+              >
+                Series Only
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Filter by Rating</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={showRated}
+                onCheckedChange={setShowRated}
+              >
+                Rated
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showUnrated}
+                onCheckedChange={setShowUnrated}
+              >
+                Unrated
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {/* Placeholder for status options - this might be a sub-menu or multiple checkboxes */}
+              {availableStatuses.map(statusOption => (
+                <DropdownMenuCheckboxItem
+                  key={statusOption}
+                  checked={filterStatus === statusOption}
+                  onCheckedChange={(checked) => setFilterStatus(checked ? statusOption : undefined)}
+                >
+                  {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Sort by Date Added</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {/* Placeholder for date added options */}
+              <DropdownMenuCheckboxItem
+                checked={filterDateAdded === 'newest'}
+                onCheckedChange={(checked) => setFilterDateAdded(checked ? 'newest' : undefined)}
+              >
+                Newest First
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={filterDateAdded === 'oldest'}
+                onCheckedChange={(checked) => setFilterDateAdded(checked ? 'oldest' : undefined)}
+              >
+                Oldest First
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button 
             variant="destructive" 
             size="sm" 
@@ -353,30 +511,21 @@ export default function ListDetail() {
             <p className="text-lg text-muted-foreground">This list is empty.</p>
             <p className="text-sm text-muted-foreground">Add movies or TV shows to your list!</p>
           </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-lg text-muted-foreground">No items match your current filters.</p>
+            <p className="text-sm text-muted-foreground">Try adjusting your filter criteria.</p>
+          </div>
         ) : (
           viewMode === "list" ? (
-            list.items.map((itemData: any) => {
+            filteredItems.map((mappedItem: ListItemData) => {
               // Map the fetched data to the expected ListItemData structure
-              const mappedItem: ListItemData = {
-                id: itemData.id, // This is the list_item ID
-                listId: list.id,
-                mediaId: itemData.media.id,
-                tmdbId: itemData.media.tmdbId,
-                title: itemData.media.title,
-                type: itemData.media.type,
-                voteAverage: itemData.media.voteAverage || 0,
-                seasonsWatched: itemData.seasonsWatched,
-                status: itemData.status,
-                createdAt: itemData.createdAt,
-                posterPath: itemData.media.posterPath,
-                userRating: itemData.userRating
-              };
               return (
                 <Card key={mappedItem.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-0"> {/* Remove padding here if ListItem has its own */}
+                  <CardContent className="p-0"> 
                     <ListItem 
                       item={mappedItem}
-                      onEdit={handleEditClick} // Pass the handler
+                      onEdit={handleEditClick}
                       onRatingChange={() => {
                         console.log(`Invalidating list ${listId} for user ${currentUser?.uid}`);
                         queryClient.invalidateQueries({ 
@@ -392,27 +541,12 @@ export default function ListDetail() {
           ) : (
             // Placeholder for Grid View
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {list.items.map((itemData: any) => {
-                // Ensure this mapping aligns with both ListItemData and GridItem's expected item structure
-                const mappedItem: ListItemData = {
-                  id: itemData.id,
-                  listId: list.id,
-                  mediaId: itemData.media.id,
-                  tmdbId: itemData.media.tmdbId,
-                  title: itemData.media.title,
-                  type: itemData.media.type,
-                  voteAverage: itemData.media.voteAverage || 0,
-                  seasonsWatched: itemData.seasonsWatched,
-                  status: itemData.status,
-                  createdAt: itemData.createdAt,
-                  posterPath: itemData.media.posterPath,
-                  userRating: itemData.userRating
-                };
+              {filteredItems.map((mappedItem: ListItemData) => {
                 return (
                   <GridItem 
-                    key={`${mappedItem.id}-${mappedItem.mediaId}`} // Use a robust key
-                    item={mappedItem} 
-                    onEdit={handleEditClick} // Pass the edit handler
+                    key={`${mappedItem.id}-${mappedItem.mediaId}`} 
+                    item={mappedItem}
+                    onEdit={handleEditClick}
                   />
                 );
               })}
