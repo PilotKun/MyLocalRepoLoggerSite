@@ -57,7 +57,7 @@ export default function MediaDetail() {
 
   // Mock user ID - this would come from auth context in a real app
   const userId = 1;
-  const isAuthenticated = false; // This would come from auth context
+  const isAuthenticated = true; // This would come from auth context (TEMPORARILY TRUE FOR TESTING)
 
   // Check if item is in user's lists
   const { data: isInWatchlist } = useQuery({
@@ -108,11 +108,16 @@ export default function MediaDetail() {
       });
       return;
     }
+    if (!mediaDetails) {
+      toast({ title: "Error", description: "Media details not available to add to watchlist.", variant: "destructive" });
+      return;
+    }
 
     try {
       const response = await apiRequest("POST", "/api/watchlist", {
         userId,
-        mediaId: mediaDetails?.id,
+        mediaId: mediaDetails.id,
+        mediaType: mediaType,
       });
 
       toast({
@@ -141,11 +146,16 @@ export default function MediaDetail() {
       });
       return;
     }
+    if (!mediaDetails) {
+      toast({ title: "Error", description: "Media details not available to mark as watched.", variant: "destructive" });
+      return;
+    }
 
     try {
       const response = await apiRequest("POST", "/api/watched", {
         userId,
-        mediaId: mediaDetails?.id,
+        mediaId: mediaDetails.id,
+        mediaType: mediaType,
       });
 
       toast({
@@ -174,11 +184,16 @@ export default function MediaDetail() {
       });
       return;
     }
+    if (!mediaDetails) {
+      toast({ title: "Error", description: "Media details not available to add to favorites.", variant: "destructive" });
+      return;
+    }
 
     try {
       const response = await apiRequest("POST", "/api/favorites", {
         userId,
-        mediaId: mediaDetails?.id,
+        mediaId: mediaDetails.id,
+        mediaType: mediaType,
       });
 
       toast({
@@ -195,6 +210,86 @@ export default function MediaDetail() {
         description: "Failed to add to favorites. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Add to custom list (placeholder)
+  const handleAddToList = async () => {
+    if (!isAuthenticated) { // Will be true due to the change above, but good practice
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to add items to a list.",
+      });
+      return;
+    }
+    if (!mediaDetails) {
+        toast({ title: "Error", description: "Media details not available yet.", variant: "destructive" });
+        return;
+    }
+
+    const itemTitle = mediaType === "movie" 
+        ? (mediaDetails as TMDBMovie).title 
+        : (mediaDetails as TMDBTVShow).name;
+
+    toast({
+      title: "Action: Add to List",
+      description: `"${itemTitle}" - functionality to add to a specific list is pending.`,
+    });
+    // Future implementation:
+    // console.log("Add to list:", mediaDetails.id, "for user:", userId);
+    // Example: await apiRequest("POST", `/api/users/${userId}/custom-lists/add-item`, { mediaId: mediaDetails.id, listId: 'someListId' });
+    // queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/custom-lists`] });
+  };
+
+  // Share media
+  const handleShare = async () => {
+    if (!mediaDetails) {
+      toast({ title: "Error", description: "Media details not loaded yet.", variant: "destructive" });
+      return;
+    }
+
+    const shareUrl = window.location.href;
+    const shareTitle = mediaType === "movie"
+      ? (mediaDetails as TMDBMovie).title
+      : (mediaDetails as TMDBTVShow).name;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: `Check out ${shareTitle}!`,
+          url: shareUrl,
+        });
+        toast({
+          title: "Shared successfully!",
+        });
+      } catch (error: any) {
+        console.error("Share API error:", error);
+        // Don't show a toast if the user cancels the share dialog (AbortError)
+        if (error.name !== 'AbortError') {
+          toast({
+            title: "Error sharing",
+            description: "Could not share at this time.",
+            variant: "destructive",
+          });
+        }
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({
+          title: "Link Copied!",
+          description: `Link to "${shareTitle}" copied to clipboard.`,
+        });
+      } catch (err) {
+        console.error("Clipboard API error:", err);
+        toast({
+          title: "Failed to copy",
+          description: "Could not copy link to clipboard.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -319,12 +414,12 @@ export default function MediaDetail() {
                   {isInFavorites ? "In Favorites" : "Add to Favorites"}
                 </Button>
                 
-                <Button variant="ghost" className="gap-2">
+                <Button variant="ghost" className="gap-2" onClick={handleAddToList}>
                   <ListPlus className="h-4 w-4" />
                   Add to List
                 </Button>
                 
-                <Button variant="ghost" className="gap-2">
+                <Button variant="ghost" className="gap-2" onClick={handleShare}>
                   <Share className="h-4 w-4" />
                   Share
                 </Button>

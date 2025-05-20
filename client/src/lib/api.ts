@@ -39,11 +39,29 @@ export async function apiRequest(
 
 // User-related API functions
 export async function createOrUpdateUser(user: User) {
-  return apiRequest('POST', '/users', {
-    id: user.uid,
-    email: user.email,
-    displayName: user.displayName || user.email?.split('@')[0] || 'User',
-  });
+  try {
+    // First check if user exists
+    const checkResponse = await fetch(`${API_BASE_URL}/users/${user.uid}`);
+    
+    // If user exists, update instead of create
+    if (checkResponse.ok) {
+      return apiRequest('PUT', `/users/${user.uid}`, {
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || null
+      });
+    } else {
+      // User doesn't exist, create new user
+      return apiRequest('POST', '/users', {
+        id: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || null
+      });
+    }
+  } catch (error) {
+    console.error("Error in createOrUpdateUser:", error);
+    throw error;
+  }
 }
 
 // List-related API functions

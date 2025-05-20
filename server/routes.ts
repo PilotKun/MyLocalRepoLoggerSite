@@ -54,8 +54,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.params.id;
       // Basic validation for incoming data (can be refined with Zod)
       const { displayName, photoURL } = req.body;
-      if (typeof displayName !== 'string' || typeof photoURL !== 'string') {
-        return res.status(400).json({ message: "Invalid update data: displayName and photoURL must be strings." });
+      if (typeof displayName !== 'string') {
+        return res.status(400).json({ message: "Invalid update data: displayName must be a string." });
+      }
+      
+      // PhotoURL can be null or string
+      if (photoURL !== null && typeof photoURL !== 'string') {
+        return res.status(400).json({ message: "Invalid update data: photoURL must be a string or null." });
       }
 
       // Assume storage.updateUser exists and handles the update
